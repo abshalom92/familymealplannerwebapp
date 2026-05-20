@@ -1,0 +1,166 @@
+Meal_Name,Meal_Type,Ingredient_Name,Quantity,Unit,Category
+Greek yogurt with granola and berries,Breakfast,Greek yogurt,1,cup,dairy
+Greek yogurt with granola and berries,Breakfast,granola,0.5,cup,grains
+Greek yogurt with granola and berries,Breakfast,mixed berries,0.5,cup,produce
+Greek yogurt with granola and berries,Breakfast,honey,1,tbsp,pantry
+Scrambled eggs with toast,Breakfast,eggs,2,each,meat
+Scrambled eggs with toast,Breakfast,whole wheat bread,2,slice,grains
+Scrambled eggs with toast,Breakfast,butter,1,tbsp,dairy
+Scrambled eggs with toast,Breakfast,salt,0.25,tsp,pantry
+Oatmeal with banana and peanut butter,Breakfast,rolled oats,0.5,cup,grains
+Oatmeal with banana and peanut butter,Breakfast,banana,1,each,produce
+Oatmeal with banana and peanut butter,Breakfast,peanut butter,2,tbsp,pantry
+Oatmeal with banana and peanut butter,Breakfast,honey,1,tsp,pantry
+Oatmeal with banana and peanut butter,Breakfast,milk,0.5,cup,dairy
+Egg and cheese breakfast burrito,Breakfast,eggs,2,each,meat
+Egg and cheese breakfast burrito,Breakfast,flour tortilla,1,each,grains
+Egg and cheese breakfast burrito,Breakfast,cheddar cheese,0.25,cup,dairy
+Egg and cheese breakfast burrito,Breakfast,salsa,2,tbsp,pantry
+Egg and cheese breakfast burrito,Breakfast,bell pepper,0.25,each,produce
+Whole grain pancakes with fruit,Breakfast,whole wheat flour,1,cup,grains
+Whole grain pancakes with fruit,Breakfast,eggs,1,each,meat
+Whole grain pancakes with fruit,Breakfast,milk,1,cup,dairy
+Whole grain pancakes with fruit,Breakfast,baking powder,1,tsp,pantry
+Whole grain pancakes with fruit,Breakfast,mixed fruit,1,cup,produce
+Cottage cheese with pineapple,Breakfast,cottage cheese,1,cup,dairy
+Cottage cheese with pineapple,Breakfast,pineapple chunks,0.5,cup,produce
+Cottage cheese with pineapple,Breakfast,honey,1,tsp,pantry
+Avocado toast with eggs,Breakfast,whole grain bread,2,slice,grains
+Avocado toast with eggs,Breakfast,avocado,1,each,produce
+Avocado toast with eggs,Breakfast,eggs,2,each,meat
+Avocado toast with eggs,Breakfast,lemon juice,1,tsp,pantry
+Avocado toast with eggs,Breakfast,red pepper flakes,0.25,tsp,pantry
+Protein smoothie with spinach,Breakfast,spinach,1,cup,produce
+Protein smoothie with spinach,Breakfast,protein powder,1,scoop,pantry
+Protein smoothie with spinach,Breakfast,banana,1,each,produce
+Protein smoothie with spinach,Breakfast,almond milk,1,cup,dairy
+Protein smoothie with spinach,Breakfast,chia seeds,1,tbsp,pantry
+Honey topped coffee and cream with eggs,Breakfast,coffee,1,cup,pantry
+Honey topped coffee and cream with eggs,Breakfast,heavy cream,2,tbsp,dairy
+Honey topped coffee and cream with eggs,Breakfast,honey,1,tbsp,pantry
+Honey topped coffee and cream with eggs,Breakfast,eggs,2,each,meat
+Whole grain cereal with milk,Breakfast,whole grain cereal,1,cup,grains
+Whole grain cereal with milk,Breakfast,milk,1,cup,dairy
+Whole grain cereal with milk,Breakfast,banana,0.5,each,produce
+Peanut butter and jelly sandwich,Lunch,whole wheat bread,2,slice,grains
+Peanut butter and jelly sandwich,Lunch,peanut butter,2,tbsp,pantry
+Peanut butter and jelly sandwich,Lunch,strawberry jam,1,tbsp,pantry
+Peanut butter and jelly sandwich,Lunch,apple,1,each,produce
+Peanut butter and jelly sandwich,Lunch,baby carrots,1,cup,produce
+Turkey and cheese wrap,Lunch,flour tortilla,1,each,grains
+Turkey and cheese wrap,Lunch,turkey slices,3,oz,meat
+Turkey and cheese wrap,Lunch,cheddar cheese,1,oz,dairy
+Turkey and cheese wrap,Lunch,lettuce,0.5,cup,produce
+Turkey and cheese wrap,Lunch,tomato,0.25,each,produce
+Chicken salad with greens,Lunch,grilled chicken breast,4,oz,meat
+Chicken salad with greens,Lunch,mixed greens,2,cup,produce
+Chicken salad with greens,Lunch,cherry tomatoes,0.5,cup,produce
+Chicken salad with greens,Lunch,cucumber,0.25,each,produce
+Chicken salad with greens,Lunch,olive oil,1,tbsp,pantry
+Ham sandwich with fruit,Lunch,whole wheat bread,2,slice,grains
+Ham sandwich with fruit,Lunch,ham slices,3,oz,meat
+Ham sandwich with fruit,Lunch,Swiss cheese,1,oz,dairy
+Ham sandwich with fruit,Lunch,mustard,1,tsp,pantry
+Ham sandwich with fruit,Lunch,apple,1,each,produce
+Bean and rice bowl,Lunch,brown rice,0.75,cup,grains
+Bean and rice bowl,Lunch,black beans,0.5,cup,pantry
+Bean and rice bowl,Lunch,corn,0.25,cup,produce
+Bean and rice bowl,Lunch,salsa,2,tbsp,pantry
+Bean and rice bowl,Lunch,sour cream,1,tbsp,dairy
+Chicken quesadilla,Lunch,flour tortillas,2,each,grains
+Chicken quesadilla,Lunch,grilled chicken,3,oz,meat
+Chicken quesadilla,Lunch,cheddar cheese,0.5,cup,dairy
+Chicken quesadilla,Lunch,salsa,2,tbsp,pantry
+Chicken quesadilla,Lunch,bell pepper,0.5,each,produce
+Tuna salad sandwich,Lunch,whole wheat bread,2,slice,grains
+Tuna salad sandwich,Lunch,canned tuna,5,oz,meat
+Tuna salad sandwich,Lunch,mayonnaise,1,tbsp,pantry
+Tuna salad sandwich,Lunch,celery,2,stalk,produce
+Tuna salad sandwich,Lunch,lemon juice,1,tsp,pantry
+Greek yogurt parfait,Lunch,Greek yogurt,1,cup,dairy
+Greek yogurt parfait,Lunch,granola,0.25,cup,grains
+Greek yogurt parfait,Lunch,mixed berries,0.5,cup,produce
+Greek yogurt parfait,Lunch,honey,1,tbsp,pantry
+Pasta salad with vegetables,Lunch,rotini pasta,2,cup,grains
+Pasta salad with vegetables,Lunch,cherry tomatoes,0.5,cup,produce
+Pasta salad with vegetables,Lunch,cucumber,0.5,each,produce
+Pasta salad with vegetables,Lunch,bell pepper,0.5,each,produce
+Pasta salad with vegetables,Lunch,Italian dressing,2,tbsp,pantry
+Grilled cheese and tomato soup,Lunch,whole wheat bread,2,slice,grains
+Grilled cheese and tomato soup,Lunch,cheddar cheese,2,oz,dairy
+Grilled cheese and tomato soup,Lunch,butter,1,tbsp,dairy
+Grilled cheese and tomato soup,Lunch,tomato soup,1,cup,pantry
+Grilled chicken with rice and broccoli,Dinner,chicken breast,6,oz,meat
+Grilled chicken with rice and broccoli,Dinner,brown rice,1,cup,grains
+Grilled chicken with rice and broccoli,Dinner,broccoli,2,cup,produce
+Grilled chicken with rice and broccoli,Dinner,olive oil,1,tbsp,pantry
+Grilled chicken with rice and broccoli,Dinner,garlic,2,clove,produce
+Salmon with sweet potato,Dinner,salmon fillet,6,oz,meat
+Salmon with sweet potato,Dinner,sweet potato,1,each,produce
+Salmon with sweet potato,Dinner,olive oil,1,tbsp,pantry
+Salmon with sweet potato,Dinner,lemon,0.5,each,produce
+Salmon with sweet potato,Dinner,garlic,2,clove,produce
+Turkey chili with beans,Dinner,ground turkey,1,lb,meat
+Turkey chili with beans,Dinner,kidney beans,1,cup,pantry
+Turkey chili with beans,Dinner,diced tomatoes,1,cup,produce
+Turkey chili with beans,Dinner,chili powder,1,tbsp,pantry
+Turkey chili with beans,Dinner,onion,0.5,each,produce
+Beef stir fry with vegetables,Dinner,beef strips,6,oz,meat
+Beef stir fry with vegetables,Dinner,broccoli,1,cup,produce
+Beef stir fry with vegetables,Dinner,bell pepper,1,each,produce
+Beef stir fry with vegetables,Dinner,soy sauce,2,tbsp,pantry
+Beef stir fry with vegetables,Dinner,sesame oil,1,tsp,pantry
+Whole wheat spaghetti with meat sauce,Dinner,whole wheat spaghetti,8,oz,grains
+Whole wheat spaghetti with meat sauce,Dinner,ground beef,0.5,lb,meat
+Whole wheat spaghetti with meat sauce,Dinner,marinara sauce,1,cup,pantry
+Whole wheat spaghetti with meat sauce,Dinner,parmesan cheese,2,tbsp,dairy
+Whole wheat spaghetti with meat sauce,Dinner,garlic,2,clove,produce
+Chicken fajitas,Dinner,chicken breast,6,oz,meat
+Chicken fajitas,Dinner,flour tortillas,3,each,grains
+Chicken fajitas,Dinner,bell pepper,2,each,produce
+Chicken fajitas,Dinner,onion,1,each,produce
+Chicken fajitas,Dinner,fajita seasoning,1,tbsp,pantry
+Vegetable soup with bread,Dinner,mixed vegetables,2,cup,produce
+Vegetable soup with bread,Dinner,vegetable broth,3,cup,pantry
+Vegetable soup with bread,Dinner,garlic,2,clove,produce
+Vegetable soup with bread,Dinner,whole wheat bread,2,slice,grains
+Vegetable soup with bread,Dinner,olive oil,1,tbsp,pantry
+Baked chicken thighs with carrots,Dinner,chicken thighs,4,each,meat
+Baked chicken thighs with carrots,Dinner,carrots,3,each,produce
+Baked chicken thighs with carrots,Dinner,olive oil,2,tbsp,pantry
+Baked chicken thighs with carrots,Dinner,garlic powder,1,tsp,pantry
+Baked chicken thighs with carrots,Dinner,Italian herbs,1,tsp,pantry
+Shrimp and rice bowl,Dinner,shrimp,6,oz,meat
+Shrimp and rice bowl,Dinner,white rice,1,cup,grains
+Shrimp and rice bowl,Dinner,broccoli,1,cup,produce
+Shrimp and rice bowl,Dinner,soy sauce,2,tbsp,pantry
+Shrimp and rice bowl,Dinner,sesame oil,1,tsp,pantry
+Lentil curry with rice,Dinner,red lentils,1,cup,pantry
+Lentil curry with rice,Dinner,white rice,1,cup,grains
+Lentil curry with rice,Dinner,coconut milk,1,cup,pantry
+Lentil curry with rice,Dinner,curry powder,2,tbsp,pantry
+Lentil curry with rice,Dinner,onion,1,each,produce
+Apple slices with peanut butter,Snack,apple,1,each,produce
+Apple slices with peanut butter,Snack,peanut butter,2,tbsp,pantry
+String cheese and crackers,Snack,string cheese,2,oz,dairy
+String cheese and crackers,Snack,whole grain crackers,1,oz,grains
+Trail mix,Snack,mixed nuts,0.25,cup,pantry
+Trail mix,Snack,dried cranberries,2,tbsp,pantry
+Trail mix,Snack,dark chocolate chips,1,tbsp,pantry
+Greek yogurt cup,Snack,Greek yogurt,1,cup,dairy
+Greek yogurt cup,Snack,honey,1,tbsp,pantry
+Banana with almonds,Snack,banana,1,each,produce
+Banana with almonds,Snack,almonds,1,oz,pantry
+Hummus with carrots,Snack,hummus,0.25,cup,pantry
+Hummus with carrots,Snack,baby carrots,1,cup,produce
+Boiled eggs,Snack,eggs,2,each,meat
+Boiled eggs,Snack,salt,0.25,tsp,pantry
+Fruit smoothie,Snack,mixed berries,1,cup,produce
+Fruit smoothie,Snack,banana,1,each,produce
+Fruit smoothie,Snack,orange juice,0.5,cup,produce
+Fruit smoothie,Snack,yogurt,0.5,cup,dairy
+Cottage cheese cup,Snack,cottage cheese,1,cup,dairy
+Cottage cheese cup,Snack,fruit topping,0.25,cup,produce
+Popcorn,Snack,popcorn kernels,0.25,cup,grains
+Popcorn,Snack,olive oil,1,tbsp,pantry
+Popcorn,Snack,salt,0.25,tsp,pantry

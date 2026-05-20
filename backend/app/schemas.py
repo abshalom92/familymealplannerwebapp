@@ -41,6 +41,14 @@ class MealOut(BaseModel):
     prep_time: int
     cook_time: int
     servings: int
+    calories: Optional[float] = None
+    protein_g: Optional[float] = None
+    carbs_g: Optional[float] = None
+    fats_g: Optional[float] = None
+    iron_mg: Optional[float] = None
+    calcium_mg: Optional[float] = None
+    vitamin_c_mg: Optional[float] = None
+    vitamin_d_iu: Optional[float] = None
     ingredients: List[IngredientOut] = []
 
     class Config:

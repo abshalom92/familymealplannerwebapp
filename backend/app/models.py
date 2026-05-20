@@ -53,10 +53,18 @@ class Meal(Base):
     name = Column(String, index=True)
     description = Column(Text)
     instructions = Column(Text)
-    meal_type = Column(String)  # breakfast, lunch, dinner, any
+    meal_type = Column(String)  # breakfast, lunch, dinner, snack, beverage, any
     prep_time = Column(Integer)
     cook_time = Column(Integer)
     servings = Column(Integer)
+    calories = Column(Float, nullable=True)
+    protein_g = Column(Float, nullable=True)
+    carbs_g = Column(Float, nullable=True)
+    fats_g = Column(Float, nullable=True)
+    iron_mg = Column(Float, nullable=True)
+    calcium_mg = Column(Float, nullable=True)
+    vitamin_c_mg = Column(Float, nullable=True)
+    vitamin_d_iu = Column(Float, nullable=True)
     ingredients = relationship("MealIngredient", back_populates="meal", cascade="all, delete-orphan")
     meal_plans = relationship("MealPlan", back_populates="meal")
 
