@@ -3,6 +3,7 @@ import api from '../api/client'
 import RecipeModal from '../components/RecipeModal'
 import MealPickerModal from '../components/MealPickerModal'
 import AutoFillModal from '../components/AutoFillModal'
+import DayGuestsPopover from '../components/DayGuestsPopover'
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const FULL_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -252,7 +253,7 @@ export default function CalendarPage() {
                       👥
                     </button>
                     {guestPopoverDay === i && (
-                      <GuestPopover
+                      <DayGuestsPopover
                         dateStr={dateStr}
                         onClose={() => setGuestPopoverDay(null)}
                       />
