@@ -275,6 +275,93 @@ function MemberCard({ member, onEdit, onDelete }) {
   )
 }
 
+const MAX_PEOPLE = 40
+
+function HouseholdSizePanel() {
+  const [settings, setSettings] = useState({ num_adults: 2, num_children: 0, num_toddlers: 0 })
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    api.get('/household/settings').then((r) => setSettings(r.data))
+  }, [])
+
+  const total = settings.num_adults + settings.num_children + settings.num_toddlers
+  const overLimit = total > MAX_PEOPLE
+
+  const set = (key) => (e) => {
+    const val = Math.max(0, parseInt(e.target.value) || 0)
+    setSettings((s) => ({ ...s, [key]: val }))
+    setSaved(false)
+    setError('')
+  }
+
+  const handleSave = async () => {
+    if (overLimit) {
+      setError(`Total cannot exceed ${MAX_PEOPLE} people.`)
+      return
+    }
+    try {
+      await api.put('/household/settings', settings)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2000)
+    } catch (e) {
+      setError(e.response?.data?.detail || 'Save failed')
+    }
+  }
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm mb-8">
+      <div className="flex items-center gap-2 mb-4">
+        <span className="text-xl">🏠</span>
+        <div>
+          <h2 className="font-semibold text-gray-800">Household Size</h2>
+          <p className="text-xs text-gray-500">Used to scale grocery quantities automatically.</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4 mb-4">
+        {[
+          { key: 'num_adults', label: 'Adults', sub: '(full portion)' },
+          { key: 'num_children', label: 'Children', sub: '(¾ portion)' },
+          { key: 'num_toddlers', label: 'Toddlers', sub: '(½ portion)' },
+        ].map(({ key, label, sub }) => (
+          <div key={key}>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{label}
+              <span className="text-xs text-gray-400 font-normal ml-1">{sub}</span>
+            </label>
+            <input
+              type="number"
+              min="0"
+              max={MAX_PEOPLE}
+              value={settings[key]}
+              onChange={set(key)}
+              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            />
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div>
+          <span className={`text-sm font-medium ${overLimit ? 'text-red-600' : 'text-gray-600'}`}>
+            Total: {total} / {MAX_PEOPLE} people
+          </span>
+          {overLimit && <p className="text-xs text-red-500 mt-0.5">Maximum is {MAX_PEOPLE} mouths.</p>}
+          {error && <p className="text-xs text-red-500 mt-0.5">{error}</p>}
+        </div>
+        <button
+          onClick={handleSave}
+          disabled={overLimit}
+          className="bg-green-600 hover:bg-green-700 disabled:opacity-40 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+        >
+          {saved ? 'Saved!' : 'Save'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function FamilyPage() {
   const [members, setMembers] = useState([])
   const [showAdd, setShowAdd] = useState(false)
@@ -303,6 +390,8 @@ export default function FamilyPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
+      <HouseholdSizePanel />
+
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Family Members</h1>

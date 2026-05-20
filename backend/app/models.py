@@ -12,6 +12,8 @@ class User(Base):
     is_guest = Column(Boolean, default=False)
     meal_plans = relationship("MealPlan", back_populates="user", cascade="all, delete-orphan")
     family_members = relationship("FamilyMember", back_populates="user", cascade="all, delete-orphan")
+    household_settings = relationship("HouseholdSettings", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    day_guests = relationship("DayGuests", back_populates="user", cascade="all, delete-orphan")
 
 
 class FamilyMember(Base):
@@ -23,6 +25,26 @@ class FamilyMember(Base):
     foods_to_avoid = Column(JSON, default=list)  # e.g. ["broccoli", "mushrooms"]
     food_preferences = Column(JSON, default=list)  # e.g. ["vegetarian", "low-carb"]
     user = relationship("User", back_populates="family_members")
+
+
+class HouseholdSettings(Base):
+    __tablename__ = "household_settings"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
+    num_adults = Column(Integer, default=2)
+    num_children = Column(Integer, default=0)
+    num_toddlers = Column(Integer, default=0)
+    user = relationship("User", back_populates="household_settings")
+
+
+class DayGuests(Base):
+    __tablename__ = "day_guests"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    date = Column(Date, nullable=False)
+    adult_guests = Column(Integer, default=0)
+    child_guests = Column(Integer, default=0)
+    user = relationship("User", back_populates="day_guests")
 
 
 class Meal(Base):

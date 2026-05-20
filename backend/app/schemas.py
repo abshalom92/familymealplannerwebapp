@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 from typing import Optional, List
 from datetime import date
 
@@ -77,6 +77,47 @@ class GroceryItem(BaseModel):
     total_quantity: float
     unit: str
     category: str
+
+
+class HouseholdSettingsIn(BaseModel):
+    num_adults: int = Field(2, ge=0, le=40)
+    num_children: int = Field(0, ge=0, le=40)
+    num_toddlers: int = Field(0, ge=0, le=40)
+
+    @model_validator(mode='after')
+    def check_total(self):
+        if self.num_adults + self.num_children + self.num_toddlers > 40:
+            raise ValueError('Total household members cannot exceed 40')
+        return self
+
+
+class HouseholdSettingsOut(BaseModel):
+    num_adults: int
+    num_children: int
+    num_toddlers: int
+
+    class Config:
+        from_attributes = True
+
+
+class DayGuestsIn(BaseModel):
+    adult_guests: int = Field(0, ge=0, le=40)
+    child_guests: int = Field(0, ge=0, le=40)
+
+    @model_validator(mode='after')
+    def check_total(self):
+        if self.adult_guests + self.child_guests > 40:
+            raise ValueError('Total guests cannot exceed 40')
+        return self
+
+
+class DayGuestsOut(BaseModel):
+    date: date
+    adult_guests: int
+    child_guests: int
+
+    class Config:
+        from_attributes = True
 
 
 class FamilyMemberCreate(BaseModel):

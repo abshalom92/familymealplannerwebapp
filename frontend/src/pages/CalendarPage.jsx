@@ -31,6 +31,68 @@ function addDays(date, days) {
   return d
 }
 
+const MAX_GUESTS = 40
+
+function GuestPopover({ dateStr, onClose }) {
+  const [adults, setAdults] = useState(0)
+  const [children, setChildren] = useState(0)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    api.get(`/household/guests/${dateStr}`).then((r) => {
+      setAdults(r.data.adult_guests)
+      setChildren(r.data.child_guests)
+    })
+  }, [dateStr])
+
+  const total = adults + children
+  const over = total > MAX_GUESTS
+
+  const handleSave = async () => {
+    if (over) return
+    setSaving(true)
+    try {
+      await api.put(`/household/guests/${dateStr}`, { adult_guests: adults, child_guests: children })
+      onClose()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-xl p-4 w-52">
+      <p className="text-xs font-semibold text-gray-700 mb-3">Add Guests</p>
+      <div className="space-y-2 mb-3">
+        <div>
+          <label className="text-xs text-gray-500">Adult guests</label>
+          <input type="number" min="0" max={MAX_GUESTS} value={adults}
+            onChange={(e) => setAdults(Math.max(0, parseInt(e.target.value) || 0))}
+            className="w-full mt-0.5 px-2 py-1 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+          />
+        </div>
+        <div>
+          <label className="text-xs text-gray-500">Child guests</label>
+          <input type="number" min="0" max={MAX_GUESTS} value={children}
+            onChange={(e) => setChildren(Math.max(0, parseInt(e.target.value) || 0))}
+            className="w-full mt-0.5 px-2 py-1 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+          />
+        </div>
+      </div>
+      {over && <p className="text-xs text-red-500 mb-2">Max {MAX_GUESTS} guests.</p>}
+      <div className="flex gap-2">
+        <button onClick={handleSave} disabled={saving || over}
+          className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-40 text-white text-xs font-medium py-1.5 rounded-lg transition-colors">
+          {saving ? '…' : 'Save'}
+        </button>
+        <button onClick={onClose}
+          className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-medium py-1.5 rounded-lg transition-colors">
+          Cancel
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function CalendarPage() {
   const [weekStart, setWeekStart] = useState(() => getMondayOfWeek(new Date()))
   const [mealPlan, setMealPlan] = useState([]) // array of MealPlanOut
@@ -40,6 +102,7 @@ export default function CalendarPage() {
   const [showAutoFill, setShowAutoFill] = useState(false)
   const [autoFillLoading, setAutoFillLoading] = useState(false)
   const [clearConfirm, setClearConfirm] = useState(false)
+  const [guestPopoverDay, setGuestPopoverDay] = useState(null) // day index 0-6
 
   const fetchWeek = useCallback(async () => {
     setLoading(true)
@@ -173,13 +236,27 @@ export default function CalendarPage() {
               <div /> {/* spacer for slot labels */}
               {DAYS.map((d, i) => {
                 const dayDate = addDays(weekStart, i)
-                const isToday = formatDate(dayDate) === formatDate(new Date())
+                const dateStr = formatDate(dayDate)
+                const isToday = dateStr === formatDate(new Date())
                 return (
-                  <div key={d} className="text-center">
+                  <div key={d} className="text-center relative">
                     <p className={`text-xs font-semibold ${isToday ? 'text-green-600' : 'text-gray-400'}`}>{d}</p>
                     <p className={`text-lg font-bold ${isToday ? 'text-green-600' : 'text-gray-700'}`}>
                       {dayDate.getDate()}
                     </p>
+                    <button
+                      onClick={() => setGuestPopoverDay(guestPopoverDay === i ? null : i)}
+                      title="Add guests"
+                      className="text-xs text-gray-400 hover:text-green-600 transition-colors mt-0.5"
+                    >
+                      👥
+                    </button>
+                    {guestPopoverDay === i && (
+                      <GuestPopover
+                        dateStr={dateStr}
+                        onClose={() => setGuestPopoverDay(null)}
+                      />
+                    )}
                   </div>
                 )
               })}

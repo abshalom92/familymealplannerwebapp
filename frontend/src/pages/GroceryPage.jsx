@@ -39,6 +39,11 @@ export default function GroceryPage() {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(false)
   const [checked, setChecked] = useState({})
+  const [household, setHousehold] = useState(null)
+
+  useEffect(() => {
+    api.get('/household/settings').then((r) => setHousehold(r.data))
+  }, [])
 
   useEffect(() => {
     setLoading(true)
@@ -71,8 +76,15 @@ export default function GroceryPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Grocery List</h1>
-          {totalItems > 0 && (
+          {household && (
             <p className="text-sm text-gray-500 mt-0.5">
+              Scaled for {household.num_adults} adult{household.num_adults !== 1 ? 's' : ''}
+              {household.num_children > 0 ? `, ${household.num_children} child${household.num_children !== 1 ? 'ren' : ''}` : ''}
+              {household.num_toddlers > 0 ? `, ${household.num_toddlers} toddler${household.num_toddlers !== 1 ? 's' : ''}` : ''}
+            </p>
+          )}
+          {totalItems > 0 && (
+            <p className="text-sm text-gray-500">
               {checkedCount}/{totalItems} items checked
             </p>
           )}
