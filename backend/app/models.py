@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Date, Text, Float
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Date, Text, Float, JSON
 from sqlalchemy.orm import relationship
 from .database import Base
 
@@ -11,6 +11,18 @@ class User(Base):
     password_hash = Column(String, nullable=True)
     is_guest = Column(Boolean, default=False)
     meal_plans = relationship("MealPlan", back_populates="user", cascade="all, delete-orphan")
+    family_members = relationship("FamilyMember", back_populates="user", cascade="all, delete-orphan")
+
+
+class FamilyMember(Base):
+    __tablename__ = "family_members"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    name = Column(String, nullable=False)
+    allergies = Column(JSON, default=list)       # e.g. ["nuts", "dairy"]
+    foods_to_avoid = Column(JSON, default=list)  # e.g. ["broccoli", "mushrooms"]
+    food_preferences = Column(JSON, default=list)  # e.g. ["vegetarian", "low-carb"]
+    user = relationship("User", back_populates="family_members")
 
 
 class Meal(Base):

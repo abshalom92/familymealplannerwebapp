@@ -77,3 +77,28 @@ class GroceryItem(BaseModel):
     total_quantity: float
     unit: str
     category: str
+
+
+class FamilyMemberCreate(BaseModel):
+    name: str
+    allergies: List[str] = []
+    foods_to_avoid: List[str] = []
+    food_preferences: List[str] = []
+
+
+class FamilyMemberUpdate(BaseModel):
+    name: Optional[str] = None
+    allergies: Optional[List[str]] = None
+    foods_to_avoid: Optional[List[str]] = None
+    food_preferences: Optional[List[str]] = None
+
+
+class FamilyMemberOut(BaseModel):
+    id: int
+    name: str
+    allergies: List[str] = []
+    foods_to_avoid: List[str] = []
+    food_preferences: List[str] = []
+
+    class Config:
+        from_attributes = True

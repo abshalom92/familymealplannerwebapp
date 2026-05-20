@@ -28,6 +28,7 @@ export default function Navbar() {
         <div className="flex items-center gap-1">
           {navLink('/calendar', '📅 Calendar')}
           {navLink('/grocery', '🛒 Grocery List')}
+          {navLink('/family', '👨‍👩‍👧 Family')}
         </div>
         <div className="flex items-center gap-2">
           <span className="text-sm text-gray-500 hidden sm:block">

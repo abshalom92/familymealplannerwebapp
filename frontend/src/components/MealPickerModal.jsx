@@ -8,16 +8,25 @@ export default function MealPickerModal({ slot, weekStart, onClose, onSelect }) 
   const [meals, setMeals] = useState([])
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
+  const [familyMembers, setFamilyMembers] = useState([])
+  const [selectedMemberId, setSelectedMemberId] = useState('')
 
   useEffect(() => {
-    api.get('/meals/').then((r) => setMeals(r.data))
+    api.get('/family/').then((r) => setFamilyMembers(r.data))
   }, [])
+
+  useEffect(() => {
+    const params = selectedMemberId ? { member_id: selectedMemberId } : {}
+    api.get('/meals/', { params }).then((r) => setMeals(r.data))
+  }, [selectedMemberId])
 
   const filtered = meals.filter((m) => {
     const matchType = filter === 'all' || m.meal_type === filter || m.meal_type === 'any'
     const matchSearch = m.name.toLowerCase().includes(search.toLowerCase())
     return matchType && matchSearch
   })
+
+  const selectedMember = familyMembers.find((m) => m.id === Number(selectedMemberId))
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
@@ -32,6 +41,28 @@ export default function MealPickerModal({ slot, weekStart, onClose, onSelect }) 
             </div>
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">✕</button>
           </div>
+
+          {familyMembers.length > 0 && (
+            <div className="mb-3">
+              <select
+                value={selectedMemberId}
+                onChange={(e) => setSelectedMemberId(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+              >
+                <option value="">Filter by family member…</option>
+                {familyMembers.map((m) => (
+                  <option key={m.id} value={m.id}>{m.name}</option>
+                ))}
+              </select>
+              {selectedMember && (selectedMember.allergies?.length > 0 || selectedMember.foods_to_avoid?.length > 0) && (
+                <p className="text-xs text-orange-600 mt-1 flex items-center gap-1">
+                  <span>⚠️</span>
+                  Hiding meals with: {[...selectedMember.allergies, ...selectedMember.foods_to_avoid].join(', ')}
+                </p>
+              )}
+            </div>
+          )}
+
           <input
             type="text"
             placeholder="Search meals…"
