@@ -5,7 +5,7 @@ from datetime import date
 import random
 from ..database import get_db
 from .. import models, schemas
-from ..auth_utils import get_current_user
+from ..auth_utils import get_current_user, get_group_user_ids
 
 router = APIRouter()
 
@@ -16,9 +16,10 @@ def get_week(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    user_ids = get_group_user_ids(db, current_user)
     return (
         db.query(models.MealPlan)
-        .filter(models.MealPlan.user_id == current_user.id, models.MealPlan.week_start == week_start)
+        .filter(models.MealPlan.user_id.in_(user_ids), models.MealPlan.week_start == week_start)
         .all()
     )
 
@@ -29,10 +30,11 @@ def add_meal_to_calendar(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    user_ids = get_group_user_ids(db, current_user)
     existing = (
         db.query(models.MealPlan)
         .filter(
-            models.MealPlan.user_id == current_user.id,
+            models.MealPlan.user_id.in_(user_ids),
             models.MealPlan.week_start == plan.week_start,
             models.MealPlan.day_of_week == plan.day_of_week,
             models.MealPlan.meal_slot == plan.meal_slot,
@@ -41,6 +43,7 @@ def add_meal_to_calendar(
     )
     if existing:
         existing.meal_id = plan.meal_id
+        existing.user_id = current_user.id
         db.commit()
         db.refresh(existing)
         return existing
@@ -78,10 +81,11 @@ def autofill_week(
             if not pool:
                 continue
 
+            autofill_user_ids = get_group_user_ids(db, current_user)
             existing = (
                 db.query(models.MealPlan)
                 .filter(
-                    models.MealPlan.user_id == current_user.id,
+                    models.MealPlan.user_id.in_(autofill_user_ids),
                     models.MealPlan.week_start == req.week_start,
                     models.MealPlan.day_of_week == day,
                     models.MealPlan.meal_slot == slot,
@@ -122,10 +126,11 @@ def clear_week(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    user_ids = get_group_user_ids(db, current_user)
     db.query(models.MealPlan).filter(
-        models.MealPlan.user_id == current_user.id,
+        models.MealPlan.user_id.in_(user_ids),
         models.MealPlan.week_start == week_start,
-    ).delete()
+    ).delete(synchronize_session=False)
     db.commit()
 
 
@@ -135,9 +140,10 @@ def remove_meal_from_calendar(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    user_ids = get_group_user_ids(db, current_user)
     plan = db.query(models.MealPlan).filter(
         models.MealPlan.id == plan_id,
-        models.MealPlan.user_id == current_user.id,
+        models.MealPlan.user_id.in_(user_ids),
     ).first()
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found")

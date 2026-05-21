@@ -21,6 +21,25 @@ class User(Base):
     family_members = relationship("FamilyMember", back_populates="user", cascade="all, delete-orphan")
     household_settings = relationship("HouseholdSettings", back_populates="user", uselist=False, cascade="all, delete-orphan")
     day_guests = relationship("DayGuests", back_populates="user", cascade="all, delete-orphan")
+    family_group_membership = relationship("FamilyGroupMember", back_populates="user", uselist=False, cascade="all, delete-orphan")
+
+
+class FamilyGroup(Base):
+    __tablename__ = "family_groups"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    join_code = Column(String(8), unique=True, index=True, nullable=False)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    members = relationship("FamilyGroupMember", back_populates="group", cascade="all, delete-orphan")
+
+
+class FamilyGroupMember(Base):
+    __tablename__ = "family_group_members"
+    id = Column(Integer, primary_key=True, index=True)
+    group_id = Column(Integer, ForeignKey("family_groups.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
+    group = relationship("FamilyGroup", back_populates="members")
+    user = relationship("User", back_populates="family_group_membership")
 
 
 class FamilyMember(Base):
@@ -97,3 +116,7 @@ class MealPlan(Base):
     meal_id = Column(Integer, ForeignKey("meals.id"))
     user = relationship("User", back_populates="meal_plans")
     meal = relationship("Meal", back_populates="meal_plans")
+
+    @property
+    def planned_by(self):
+        return self.user.username if self.user else None

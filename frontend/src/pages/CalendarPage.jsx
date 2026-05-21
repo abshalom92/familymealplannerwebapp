@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import api from '../api/client'
+import { useAuth } from '../context/AuthContext'
 import RecipeModal from '../components/RecipeModal'
 import MealPickerModal from '../components/MealPickerModal'
 import AutoFillModal from '../components/AutoFillModal'
@@ -95,6 +96,7 @@ function GuestPopover({ dateStr, onClose }) {
 }
 
 export default function CalendarPage() {
+  const { user } = useAuth()
   const [weekStart, setWeekStart] = useState(() => getMondayOfWeek(new Date()))
   const [mealPlan, setMealPlan] = useState([]) // array of MealPlanOut
   const [viewMealId, setViewMealId] = useState(null)
@@ -287,7 +289,9 @@ export default function CalendarPage() {
                           </p>
                           <div className="flex items-center justify-between mt-1">
                             <span className="text-xs text-gray-400">
-                              {entry.meal.prep_time + entry.meal.cook_time}m
+                              {entry.planned_by && entry.planned_by !== user?.username
+                                ? `@${entry.planned_by}`
+                                : `${entry.meal.prep_time + entry.meal.cook_time}m`}
                             </span>
                             <button
                               onClick={(e) => handleRemoveMeal(e, entry.id)}

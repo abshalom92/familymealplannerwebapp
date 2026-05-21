@@ -5,7 +5,7 @@ from datetime import date, timedelta
 from collections import defaultdict
 from ..database import get_db
 from .. import models, schemas
-from ..auth_utils import get_current_user
+from ..auth_utils import get_current_user, get_group_user_ids
 
 router = APIRouter()
 
@@ -20,9 +20,10 @@ def get_grocery_list(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    user_ids = get_group_user_ids(db, current_user)
     plans = (
         db.query(models.MealPlan)
-        .filter(models.MealPlan.user_id == current_user.id, models.MealPlan.week_start == week_start)
+        .filter(models.MealPlan.user_id.in_(user_ids), models.MealPlan.week_start == week_start)
         .all()
     )
 

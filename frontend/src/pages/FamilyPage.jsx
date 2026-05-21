@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import api from '../api/client'
+import { useAuth } from '../context/AuthContext'
 
 const PREFERENCE_SUGGESTIONS = ['vegetarian', 'vegan', 'gluten-free', 'low-carb', 'dairy-free', 'halal', 'kosher']
 const ALLERGY_SUGGESTIONS = ['nuts', 'peanuts', 'dairy', 'eggs', 'shellfish', 'fish', 'soy', 'wheat', 'gluten']
@@ -275,6 +276,210 @@ function MemberCard({ member, onEdit, onDelete }) {
   )
 }
 
+function FamilyGroupPanel() {
+  const { user } = useAuth()
+  const [group, setGroup] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [view, setView] = useState('none') // 'none' | 'create' | 'join'
+  const [groupName, setGroupName] = useState('')
+  const [joinCode, setJoinCode] = useState('')
+  const [error, setError] = useState('')
+  const [copied, setCopied] = useState(false)
+
+  const loadGroup = useCallback(() => {
+    setLoading(true)
+    api.get('/group').then(({ data }) => setGroup(data)).catch(() => setGroup(null)).finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => { loadGroup() }, [loadGroup])
+
+  const handleCreate = async (e) => {
+    e.preventDefault()
+    setError('')
+    try {
+      const { data } = await api.post('/group/create', { name: groupName })
+      setGroup(data)
+      setView('none')
+      setGroupName('')
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to create group')
+    }
+  }
+
+  const handleJoin = async (e) => {
+    e.preventDefault()
+    setError('')
+    try {
+      const { data } = await api.post('/group/join', { join_code: joinCode.trim() })
+      setGroup(data)
+      setView('none')
+      setJoinCode('')
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Invalid code or already in a group')
+    }
+  }
+
+  const handleLeave = async () => {
+    if (!confirm('Leave this family group?')) return
+    await api.delete('/group/leave')
+    setGroup(null)
+  }
+
+  const handleRegenerate = async () => {
+    if (!confirm('Generate a new join code? The old one will stop working.')) return
+    const { data } = await api.post('/group/regenerate-code')
+    setGroup(data)
+  }
+
+  const copyCode = () => {
+    navigator.clipboard.writeText(group.join_code)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  if (loading) return null
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm mb-8">
+      <div className="flex items-center gap-2 mb-4">
+        <span className="text-xl">👨‍👩‍👧‍👦</span>
+        <div>
+          <h2 className="font-semibold text-gray-800">Family Group</h2>
+          <p className="text-xs text-gray-500">Share a calendar with your household members.</p>
+        </div>
+      </div>
+
+      {group ? (
+        <>
+          <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
+            <div>
+              <p className="text-lg font-bold text-gray-800">{group.name}</p>
+              <p className="text-xs text-gray-400">{group.members.length} member{group.members.length !== 1 ? 's' : ''}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-center">
+                <p className="text-[10px] text-gray-400 uppercase tracking-wide mb-0.5">Join Code</p>
+                <p className="text-xl font-mono font-bold text-green-700 tracking-widest">{group.join_code}</p>
+              </div>
+              <div className="flex flex-col gap-1">
+                <button
+                  onClick={copyCode}
+                  className="text-xs px-3 py-1.5 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
+                >
+                  {copied ? 'Copied!' : 'Copy'}
+                </button>
+                {group.owner_id === group.members.find(m => m.username === user?.username)?.user_id && (
+                  <button
+                    onClick={handleRegenerate}
+                    className="text-xs px-3 py-1.5 bg-gray-100 text-gray-500 rounded-lg hover:bg-gray-200 transition-colors"
+                  >
+                    New code
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2 mb-4">
+            {group.members.map((m) => {
+              const displayName = [m.first_name, m.last_name].filter(Boolean).join(' ') || m.username
+              const isOwner = m.user_id === group.owner_id
+              return (
+                <div key={m.user_id} className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2">
+                  <div className="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center text-sm font-bold text-green-700">
+                    {displayName.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 leading-tight">{displayName}</p>
+                    <p className="text-[10px] text-gray-400">@{m.username}{isOwner ? ' · owner' : ''}</p>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          <button
+            onClick={handleLeave}
+            className="text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors"
+          >
+            Leave group
+          </button>
+        </>
+      ) : (
+        <>
+          {view === 'none' && (
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setView('create'); setError('') }}
+                className="flex-1 border-2 border-dashed border-green-300 text-green-700 hover:bg-green-50 rounded-xl py-3 text-sm font-medium transition-colors"
+              >
+                + Create a group
+              </button>
+              <button
+                onClick={() => { setView('join'); setError('') }}
+                className="flex-1 border-2 border-dashed border-blue-300 text-blue-700 hover:bg-blue-50 rounded-xl py-3 text-sm font-medium transition-colors"
+              >
+                Join with code
+              </button>
+            </div>
+          )}
+
+          {view === 'create' && (
+            <form onSubmit={handleCreate} className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Group name</label>
+                <input
+                  type="text"
+                  value={groupName}
+                  onChange={(e) => setGroupName(e.target.value)}
+                  placeholder="e.g. The Johnson Family"
+                  required
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+                />
+              </div>
+              {error && <p className="text-xs text-red-500">{error}</p>}
+              <div className="flex gap-2">
+                <button type="submit" className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-xl transition-colors">
+                  Create
+                </button>
+                <button type="button" onClick={() => setView('none')} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-xl transition-colors">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+
+          {view === 'join' && (
+            <form onSubmit={handleJoin} className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Join code</label>
+                <input
+                  type="text"
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                  placeholder="e.g. A3F2B1C9"
+                  maxLength={8}
+                  required
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm font-mono tracking-widest focus:outline-none focus:ring-2 focus:ring-blue-400 uppercase"
+                />
+              </div>
+              {error && <p className="text-xs text-red-500">{error}</p>}
+              <div className="flex gap-2">
+                <button type="submit" className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-xl transition-colors">
+                  Join
+                </button>
+                <button type="button" onClick={() => setView('none')} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-xl transition-colors">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
 const MAX_PEOPLE = 40
 
 function HouseholdSizePanel() {
@@ -390,6 +595,7 @@ export default function FamilyPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
+      <FamilyGroupPanel />
       <HouseholdSizePanel />
 
       <div className="flex items-center justify-between mb-6">

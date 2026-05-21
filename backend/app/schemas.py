@@ -69,6 +69,7 @@ class MealPlanOut(BaseModel):
     meal_slot: str
     meal_id: int
     meal: MealOut
+    planned_by: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -126,6 +127,35 @@ class DayGuestsOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class FamilyGroupMemberOut(BaseModel):
+    user_id: int
+    username: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class FamilyGroupOut(BaseModel):
+    id: int
+    name: str
+    join_code: str
+    owner_id: int
+    members: List[FamilyGroupMemberOut] = []
+
+    class Config:
+        from_attributes = True
+
+
+class FamilyGroupCreate(BaseModel):
+    name: str
+
+
+class FamilyGroupJoin(BaseModel):
+    join_code: str
 
 
 class ProfileOut(BaseModel):
