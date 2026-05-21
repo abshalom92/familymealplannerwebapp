@@ -26,6 +26,7 @@ export default function Navbar() {
           <span className="font-bold text-green-700 hidden sm:block">Family Meal Planner</span>
         </div>
         <div className="flex items-center gap-1">
+          {navLink('/dashboard', '🏠 Dashboard')}
           {navLink('/calendar', '📅 Calendar')}
           {navLink('/grocery', '🛒 Grocery List')}
           {navLink('/family', '👨‍👩‍👧 Family')}

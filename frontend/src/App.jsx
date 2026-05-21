@@ -5,6 +5,7 @@ import CalendarPage from './pages/CalendarPage'
 import GroceryPage from './pages/GroceryPage'
 import RecipePage from './pages/RecipePage'
 import FamilyPage from './pages/FamilyPage'
+import DashboardPage from './pages/DashboardPage'
 import Navbar from './components/Navbar'
 
 function ProtectedRoute({ children }) {
@@ -16,7 +17,16 @@ function AppRoutes() {
   const { user } = useAuth()
   return (
     <Routes>
-      <Route path="/" element={user ? <Navigate to="/calendar" replace /> : <LoginPage />} />
+      <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <Navbar />
+            <DashboardPage />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/calendar"
         element={
