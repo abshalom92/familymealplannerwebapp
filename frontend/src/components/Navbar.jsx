@@ -32,9 +32,21 @@ export default function Navbar() {
           {navLink('/family', '👨‍👩‍👧 Family')}
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-500 hidden sm:block">
-            {user?.isGuest ? '👤 Guest' : `👤 ${user?.username}`}
-          </span>
+          {!user?.isGuest && (
+            <Link
+              to="/profile"
+              className={`text-sm hidden sm:flex items-center gap-1 px-3 py-1 rounded-lg transition-colors ${
+                location.pathname === '/profile'
+                  ? 'bg-green-100 text-green-700 font-medium'
+                  : 'text-gray-500 hover:bg-gray-100'
+              }`}
+            >
+              👤 {user?.username}
+            </Link>
+          )}
+          {user?.isGuest && (
+            <span className="text-sm text-gray-500 hidden sm:block">👤 Guest</span>
+          )}
           <button
             onClick={logout}
             className="text-sm text-gray-500 hover:text-red-500 px-3 py-1 rounded-lg hover:bg-red-50 transition-colors"

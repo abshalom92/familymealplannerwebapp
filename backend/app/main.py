@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .database import engine, Base, SessionLocal
-from .routers import auth, meals, calendar, grocery, family, household
+from .routers import auth, meals, calendar, grocery, family, household, profile
 from .seed_data import seed_meals
 
 Base.metadata.create_all(bind=engine)
@@ -22,6 +22,7 @@ app.include_router(calendar.router, prefix="/api/calendar", tags=["calendar"])
 app.include_router(grocery.router, prefix="/api/grocery", tags=["grocery"])
 app.include_router(family.router, prefix="/api/family", tags=["family"])
 app.include_router(household.router, prefix="/api/household", tags=["household"])
+app.include_router(profile.router, prefix="/api/profile", tags=["profile"])
 
 
 @app.on_event("startup")

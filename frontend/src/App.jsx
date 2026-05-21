@@ -6,6 +6,7 @@ import GroceryPage from './pages/GroceryPage'
 import RecipePage from './pages/RecipePage'
 import FamilyPage from './pages/FamilyPage'
 import DashboardPage from './pages/DashboardPage'
+import ProfilePage from './pages/ProfilePage'
 import Navbar from './components/Navbar'
 
 function ProtectedRoute({ children }) {
@@ -60,6 +61,15 @@ function AppRoutes() {
           <ProtectedRoute>
             <Navbar />
             <FamilyPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <Navbar />
+            <ProfilePage />
           </ProtectedRoute>
         }
       />

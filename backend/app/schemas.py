@@ -128,6 +128,31 @@ class DayGuestsOut(BaseModel):
         from_attributes = True
 
 
+class ProfileOut(BaseModel):
+    username: str
+    email: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    calorie_goal: Optional[int] = None
+    protein_goal_g: Optional[int] = None
+    carbs_goal_g: Optional[int] = None
+    fats_goal_g: Optional[int] = None
+    dietary_notes: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ProfileUpdate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    calorie_goal: Optional[int] = None
+    protein_goal_g: Optional[int] = None
+    carbs_goal_g: Optional[int] = None
+    fats_goal_g: Optional[int] = None
+    dietary_notes: Optional[str] = None
+
+
 class FamilyMemberCreate(BaseModel):
     name: str
     allergies: List[str] = []

@@ -69,10 +69,16 @@ export default function DashboardPage() {
   const [weekStart, setWeekStart] = useState(() => getMondayOfWeek(new Date()))
   const [plans, setPlans] = useState([])
   const [loading, setLoading] = useState(true)
+  const [profile, setProfile] = useState(null)
 
-  const firstName = user?.username
-    ? user.username.charAt(0).toUpperCase() + user.username.slice(1)
-    : 'there'
+  useEffect(() => {
+    if (!user?.isGuest) {
+      api.get('/profile').then(({ data }) => setProfile(data)).catch(() => {})
+    }
+  }, [user])
+
+  const firstName = profile?.first_name
+    || (user?.username ? user.username.charAt(0).toUpperCase() + user.username.slice(1) : 'there')
 
   const fetchPlans = useCallback(async () => {
     setLoading(true)
@@ -264,26 +270,49 @@ export default function DashboardPage() {
 
               {/* Micro-nutrient summary */}
               <div className="md:col-span-2 bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
-                <h3 className="font-semibold text-gray-700 mb-4">Weekly Nutrient Summary</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-gray-700">Weekly Nutrient Summary</h3>
+                  {(profile?.calorie_goal || profile?.protein_goal_g) && (
+                    <span className="text-xs text-gray-400">vs. your daily goals × 7</span>
+                  )}
+                </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   {[
-                    { label: 'Calories', value: Math.round(totals.calories).toLocaleString(), unit: 'kcal', color: '#f97316' },
-                    { label: 'Protein',  value: Math.round(totals.protein),  unit: 'g',    color: '#22c55e' },
-                    { label: 'Carbs',    value: Math.round(totals.carbs),    unit: 'g',    color: '#3b82f6' },
-                    { label: 'Fats',     value: Math.round(totals.fats),     unit: 'g',    color: '#a855f7' },
+                    { label: 'Calories', value: Math.round(totals.calories), unit: 'kcal', color: '#f97316', goal: profile?.calorie_goal },
+                    { label: 'Protein',  value: Math.round(totals.protein),  unit: 'g',    color: '#22c55e', goal: profile?.protein_goal_g },
+                    { label: 'Carbs',    value: Math.round(totals.carbs),    unit: 'g',    color: '#3b82f6', goal: profile?.carbs_goal_g },
+                    { label: 'Fats',     value: Math.round(totals.fats),     unit: 'g',    color: '#a855f7', goal: profile?.fats_goal_g },
                     { label: 'Iron',     value: totals.iron.toFixed(1),      unit: 'mg',   color: '#ef4444' },
                     { label: 'Calcium',  value: Math.round(totals.calcium),  unit: 'mg',   color: '#06b6d4' },
                     { label: 'Vitamin C',value: Math.round(plans.reduce((a, p) => a + (p.meal.vitamin_c_mg || 0), 0)), unit: 'mg', color: '#eab308' },
                     { label: 'Vitamin D',value: Math.round(plans.reduce((a, p) => a + (p.meal.vitamin_d_iu || 0), 0)), unit: 'IU', color: '#ec4899' },
-                  ].map(({ label, value, unit, color }) => (
-                    <div key={label} className="flex items-center gap-3">
-                      <div className="w-2 h-10 rounded-full" style={{ backgroundColor: color }} />
-                      <div>
-                        <p className="text-xs text-gray-400">{label}</p>
-                        <p className="text-lg font-bold text-gray-700">{value} <span className="text-xs font-normal text-gray-400">{unit}</span></p>
+                  ].map(({ label, value, unit, color, goal }) => {
+                    const weeklyGoal = goal ? goal * 7 : null
+                    const pct = weeklyGoal ? Math.min(100, Math.round((value / weeklyGoal) * 100)) : null
+                    return (
+                      <div key={label} className="flex items-start gap-3">
+                        <div className="w-2 h-10 rounded-full mt-1 flex-shrink-0" style={{ backgroundColor: color }} />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs text-gray-400">{label}</p>
+                          <p className="text-lg font-bold text-gray-700 leading-tight">
+                            {typeof value === 'number' ? value.toLocaleString() : value}{' '}
+                            <span className="text-xs font-normal text-gray-400">{unit}</span>
+                          </p>
+                          {pct !== null && (
+                            <div className="mt-1">
+                              <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full rounded-full transition-all"
+                                  style={{ width: `${pct}%`, backgroundColor: color }}
+                                />
+                              </div>
+                              <p className="text-[10px] text-gray-400 mt-0.5">{pct}% of weekly goal</p>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
 
