@@ -168,6 +168,8 @@ class ProfileOut(BaseModel):
     carbs_goal_g: Optional[int] = None
     fats_goal_g: Optional[int] = None
     dietary_notes: Optional[str] = None
+    age: Optional[int] = None
+    weight_lbs: Optional[float] = None
 
     class Config:
         from_attributes = True
@@ -181,6 +183,8 @@ class ProfileUpdate(BaseModel):
     carbs_goal_g: Optional[int] = None
     fats_goal_g: Optional[int] = None
     dietary_notes: Optional[str] = None
+    age: Optional[int] = None
+    weight_lbs: Optional[float] = None
 
 
 class FamilyMemberCreate(BaseModel):

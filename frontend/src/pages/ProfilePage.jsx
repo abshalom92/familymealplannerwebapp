@@ -29,6 +29,8 @@ export default function ProfilePage() {
       setForm({
         first_name: data.first_name ?? '',
         last_name: data.last_name ?? '',
+        age: data.age ?? '',
+        weight_lbs: data.weight_lbs ?? '',
         calorie_goal: data.calorie_goal ?? '',
         protein_goal_g: data.protein_goal_g ?? '',
         carbs_goal_g: data.carbs_goal_g ?? '',
@@ -50,6 +52,8 @@ export default function ProfilePage() {
       const payload = {
         first_name: form.first_name || null,
         last_name: form.last_name || null,
+        age: form.age ? parseInt(form.age) : null,
+        weight_lbs: form.weight_lbs ? parseFloat(form.weight_lbs) : null,
         calorie_goal: form.calorie_goal ? parseInt(form.calorie_goal) : null,
         protein_goal_g: form.protein_goal_g ? parseInt(form.protein_goal_g) : null,
         carbs_goal_g: form.carbs_goal_g ? parseInt(form.carbs_goal_g) : null,
@@ -95,6 +99,8 @@ export default function ProfilePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="First Name" name="first_name" value={form.first_name} onChange={handleChange} placeholder="Jane" />
             <Field label="Last Name" name="last_name" value={form.last_name} onChange={handleChange} placeholder="Doe" />
+            <Field label="Age" name="age" value={form.age} onChange={handleChange} type="number" placeholder="32" />
+            <Field label="Weight (lbs)" name="weight_lbs" value={form.weight_lbs} onChange={handleChange} type="number" placeholder="160" />
           </div>
           <div className="mt-4">
             <label className="block text-sm font-medium text-gray-600 mb-1">Email</label>

@@ -17,6 +17,8 @@ class User(Base):
     carbs_goal_g = Column(Integer, nullable=True)
     fats_goal_g = Column(Integer, nullable=True)
     dietary_notes = Column(Text, nullable=True)
+    age = Column(Integer, nullable=True)
+    weight_lbs = Column(Float, nullable=True)
     meal_plans = relationship("MealPlan", back_populates="user", cascade="all, delete-orphan")
     family_members = relationship("FamilyMember", back_populates="user", cascade="all, delete-orphan")
     household_settings = relationship("HouseholdSettings", back_populates="user", uselist=False, cascade="all, delete-orphan")
