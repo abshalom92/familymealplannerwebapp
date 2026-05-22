@@ -40,6 +40,8 @@ class FamilyGroupMember(Base):
     id = Column(Integer, primary_key=True, index=True)
     group_id = Column(Integer, ForeignKey("family_groups.id"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
+    is_head = Column(Boolean, default=False)
+    status = Column(String, default='approved')  # 'pending' | 'approved'
     group = relationship("FamilyGroup", back_populates="members")
     user = relationship("User", back_populates="family_group_membership")
 
@@ -49,9 +51,10 @@ class FamilyMember(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     name = Column(String, nullable=False)
-    allergies = Column(JSON, default=list)       # e.g. ["nuts", "dairy"]
-    foods_to_avoid = Column(JSON, default=list)  # e.g. ["broccoli", "mushrooms"]
-    food_preferences = Column(JSON, default=list)  # e.g. ["vegetarian", "low-carb"]
+    allergies = Column(JSON, default=list)
+    foods_to_avoid = Column(JSON, default=list)
+    food_preferences = Column(JSON, default=list)
+    weight_lbs = Column(Float, nullable=True)
     user = relationship("User", back_populates="family_members")
 
 

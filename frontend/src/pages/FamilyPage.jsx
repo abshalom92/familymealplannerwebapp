@@ -123,7 +123,7 @@ function PreferenceTagInput({ label, tags, onChange, suggestions }) {
   )
 }
 
-const emptyForm = { name: '', allergies: [], foods_to_avoid: [], food_preferences: [] }
+const emptyForm = { name: '', allergies: [], foods_to_avoid: [], food_preferences: [], weight_lbs: '' }
 
 function MemberForm({ initial = emptyForm, onSave, onCancel }) {
   const [form, setForm] = useState(initial)
@@ -136,7 +136,10 @@ function MemberForm({ initial = emptyForm, onSave, onCancel }) {
     if (!form.name.trim()) return
     setSaving(true)
     try {
-      await onSave(form)
+      await onSave({
+        ...form,
+        weight_lbs: form.weight_lbs ? parseFloat(form.weight_lbs) : null,
+      })
     } finally {
       setSaving(false)
     }
@@ -173,6 +176,16 @@ function MemberForm({ initial = emptyForm, onSave, onCancel }) {
         onChange={set('food_preferences')}
         suggestions={PREFERENCE_SUGGESTIONS}
       />
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Weight (lbs)</label>
+        <input
+          type="number"
+          value={form.weight_lbs}
+          onChange={(e) => setForm(f => ({ ...f, weight_lbs: e.target.value }))}
+          placeholder="e.g. 145"
+          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+        />
+      </div>
       <div className="flex gap-2 pt-1">
         <button
           type="submit"
@@ -279,6 +292,7 @@ function MemberCard({ member, onEdit, onDelete }) {
 function FamilyGroupPanel() {
   const { user } = useAuth()
   const [group, setGroup] = useState(null)
+  const [pending, setPending] = useState([])
   const [loading, setLoading] = useState(true)
   const [view, setView] = useState('none') // 'none' | 'create' | 'join'
   const [groupName, setGroupName] = useState('')
@@ -288,8 +302,17 @@ function FamilyGroupPanel() {
 
   const loadGroup = useCallback(() => {
     setLoading(true)
-    api.get('/group').then(({ data }) => setGroup(data)).catch(() => setGroup(null)).finally(() => setLoading(false))
-  }, [])
+    api.get('/group')
+      .then(({ data }) => {
+        setGroup(data)
+        const me = data.members.find(m => m.username === user?.username)
+        if (me?.is_head) {
+          api.get('/group/pending').then(({ data: p }) => setPending(p)).catch(() => setPending([]))
+        }
+      })
+      .catch(() => { setGroup(null); setPending([]) })
+      .finally(() => setLoading(false))
+  }, [user])
 
   useEffect(() => { loadGroup() }, [loadGroup])
 
@@ -321,14 +344,44 @@ function FamilyGroupPanel() {
 
   const handleLeave = async () => {
     if (!confirm('Leave this family group?')) return
-    await api.delete('/group/leave')
-    setGroup(null)
+    try {
+      await api.delete('/group/leave')
+      setGroup(null)
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Could not leave group')
+    }
   }
 
   const handleRegenerate = async () => {
     if (!confirm('Generate a new join code? The old one will stop working.')) return
     const { data } = await api.post('/group/regenerate-code')
     setGroup(data)
+  }
+
+  const handleApprove = async (userId) => {
+    await api.post(`/group/approve/${userId}`)
+    loadGroup()
+  }
+
+  const handleDeny = async (userId) => {
+    await api.delete(`/group/deny/${userId}`)
+    loadGroup()
+  }
+
+  const handlePromote = async (userId) => {
+    if (!confirm('Promote this member to Head of Household?')) return
+    await api.post(`/group/promote/${userId}`)
+    loadGroup()
+  }
+
+  const handleDemote = async () => {
+    if (!confirm('Step down as Head of Household?')) return
+    try {
+      await api.post('/group/demote')
+      loadGroup()
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Cannot step down')
+    }
   }
 
   const copyCode = () => {
@@ -380,19 +433,65 @@ function FamilyGroupPanel() {
             </div>
           </div>
 
+          {/* Pending requests (HoH only) */}
+          {pending.length > 0 && (
+            <div className="mb-4 bg-yellow-50 border border-yellow-200 rounded-xl p-3">
+              <p className="text-xs font-semibold text-yellow-700 mb-2">
+                {pending.length} pending join request{pending.length !== 1 ? 's' : ''}
+              </p>
+              <div className="space-y-2">
+                {pending.map((p) => {
+                  const name = [p.first_name, p.last_name].filter(Boolean).join(' ') || p.username
+                  return (
+                    <div key={p.user_id} className="flex items-center justify-between">
+                      <span className="text-sm text-gray-700">{name} <span className="text-gray-400">@{p.username}</span></span>
+                      <div className="flex gap-1">
+                        <button onClick={() => handleApprove(p.user_id)}
+                          className="text-xs px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors">
+                          Approve
+                        </button>
+                        <button onClick={() => handleDeny(p.user_id)}
+                          className="text-xs px-2 py-1 bg-red-100 hover:bg-red-200 text-red-600 rounded-lg transition-colors">
+                          Deny
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Approved members */}
           <div className="flex flex-wrap gap-2 mb-4">
             {group.members.map((m) => {
               const displayName = [m.first_name, m.last_name].filter(Boolean).join(' ') || m.username
-              const isOwner = m.user_id === group.owner_id
+              const isMe = m.username === user?.username
+              const iAmHoH = group.members.find(x => x.username === user?.username)?.is_head
               return (
                 <div key={m.user_id} className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2">
                   <div className="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center text-sm font-bold text-green-700">
                     {displayName.charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-700 leading-tight">{displayName}</p>
-                    <p className="text-[10px] text-gray-400">@{m.username}{isOwner ? ' · owner' : ''}</p>
+                    <p className="text-sm font-medium text-gray-700 leading-tight">
+                      {displayName}
+                      {m.is_head && <span className="ml-1 text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-semibold">HoH</span>}
+                    </p>
+                    <p className="text-[10px] text-gray-400">@{m.username}</p>
                   </div>
+                  {iAmHoH && !isMe && !m.is_head && (
+                    <button onClick={() => handlePromote(m.user_id)}
+                      className="ml-1 text-[10px] text-amber-600 hover:text-amber-800 hover:bg-amber-50 px-1.5 py-0.5 rounded transition-colors">
+                      Make HoH
+                    </button>
+                  )}
+                  {isMe && m.is_head && (
+                    <button onClick={handleDemote}
+                      className="ml-1 text-[10px] text-gray-400 hover:text-gray-600 hover:bg-gray-100 px-1.5 py-0.5 rounded transition-colors">
+                      Step down
+                    </button>
+                  )}
                 </div>
               )
             })}

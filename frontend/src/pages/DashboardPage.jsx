@@ -70,10 +70,17 @@ export default function DashboardPage() {
   const [plans, setPlans] = useState([])
   const [loading, setLoading] = useState(true)
   const [profile, setProfile] = useState(null)
+  const [pendingCount, setPendingCount] = useState(0)
 
   useEffect(() => {
     if (!user?.isGuest) {
       api.get('/profile').then(({ data }) => setProfile(data)).catch(() => {})
+      api.get('/group').then(({ data: group }) => {
+        const me = group.members.find(m => m.username === user?.username)
+        if (me?.is_head) {
+          api.get('/group/pending').then(({ data: p }) => setPendingCount(p.length)).catch(() => {})
+        }
+      }).catch(() => {})
     }
   }, [user])
 
@@ -143,6 +150,24 @@ export default function DashboardPage() {
         </h1>
         <p className="text-gray-400 mt-1 text-sm">{today}</p>
       </div>
+
+      {/* HoH pending requests banner */}
+      {pendingCount > 0 && (
+        <div className="mb-6 flex items-center justify-between bg-yellow-50 border border-yellow-200 rounded-2xl px-5 py-3">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🔔</span>
+            <p className="text-sm font-medium text-yellow-800">
+              {pendingCount} pending family join request{pendingCount !== 1 ? 's' : ''} waiting for your approval
+            </p>
+          </div>
+          <button
+            onClick={() => navigate('/family')}
+            className="text-xs px-3 py-1.5 bg-yellow-500 hover:bg-yellow-600 text-white font-medium rounded-lg transition-colors"
+          >
+            Review
+          </button>
+        </div>
+      )}
 
       {/* Week navigation */}
       <div className="flex items-center justify-between mb-6">

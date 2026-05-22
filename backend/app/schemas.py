@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, model_validator, field_validator
 from typing import Optional, List
 from datetime import date
 
@@ -7,6 +7,22 @@ class UserCreate(BaseModel):
     username: str
     email: Optional[str] = None
     password: str
+
+    @field_validator('password')
+    @classmethod
+    def password_strength(cls, v):
+        errors = []
+        if len(v) < 8:
+            errors.append('at least 8 characters')
+        if not any(c.isupper() for c in v):
+            errors.append('one uppercase letter')
+        if not any(c.isdigit() for c in v):
+            errors.append('one number')
+        if not any(c in '!@#$%^&*()_+-=[]{}|;:,.<>?' for c in v):
+            errors.append('one special character (!@#$%^&*...)')
+        if errors:
+            raise ValueError('Password must contain: ' + ', '.join(errors))
+        return v
 
 
 class UserLogin(BaseModel):
@@ -134,6 +150,8 @@ class FamilyGroupMemberOut(BaseModel):
     username: str
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+    is_head: bool = False
+    status: str = 'approved'
 
     class Config:
         from_attributes = True
@@ -192,6 +210,7 @@ class FamilyMemberCreate(BaseModel):
     allergies: List[str] = []
     foods_to_avoid: List[str] = []
     food_preferences: List[str] = []
+    weight_lbs: Optional[float] = None
 
 
 class FamilyMemberUpdate(BaseModel):
@@ -199,6 +218,7 @@ class FamilyMemberUpdate(BaseModel):
     allergies: Optional[List[str]] = None
     foods_to_avoid: Optional[List[str]] = None
     food_preferences: Optional[List[str]] = None
+    weight_lbs: Optional[float] = None
 
 
 class FamilyMemberOut(BaseModel):
@@ -207,6 +227,7 @@ class FamilyMemberOut(BaseModel):
     allergies: List[str] = []
     foods_to_avoid: List[str] = []
     food_preferences: List[str] = []
+    weight_lbs: Optional[float] = None
 
     class Config:
         from_attributes = True

@@ -52,9 +52,11 @@ def get_current_user(
 
 
 def get_group_user_ids(db: Session, current_user: models.User) -> list[int]:
-    """Returns all user IDs in the same family group, or just [current_user.id] if not in one."""
+    """Returns approved user IDs in the same family group, or just [current_user.id] if not in one."""
     membership = current_user.family_group_membership
-    if membership:
-        rows = db.query(models.FamilyGroupMember).filter_by(group_id=membership.group_id).all()
+    if membership and membership.status == 'approved':
+        rows = db.query(models.FamilyGroupMember).filter_by(
+            group_id=membership.group_id, status='approved'
+        ).all()
         return [m.user_id for m in rows]
     return [current_user.id]

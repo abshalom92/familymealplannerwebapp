@@ -2,6 +2,15 @@ import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
 
+function passwordChecks(pw) {
+  return {
+    length:    pw.length >= 8,
+    uppercase: /[A-Z]/.test(pw),
+    number:    /[0-9]/.test(pw),
+    special:   /[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]/.test(pw),
+  }
+}
+
 export default function LoginPage() {
   const { login, register, guestLogin } = useAuth()
   const navigate = useNavigate()
@@ -9,6 +18,9 @@ export default function LoginPage() {
   const [form, setForm] = useState({ username: '', email: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  const checks = passwordChecks(form.password)
+  const passwordValid = Object.values(checks).every(Boolean)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -20,7 +32,7 @@ export default function LoginPage() {
       } else {
         await register(form.username, form.email, form.password)
       }
-      navigate('/calendar')
+      navigate('/dashboard')
     } catch (err) {
       setError(err.response?.data?.detail || 'Something went wrong')
     } finally {
@@ -102,6 +114,20 @@ export default function LoginPage() {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                 placeholder="••••••••"
               />
+              {mode === 'register' && form.password.length > 0 && (
+                <ul className="mt-2 space-y-1">
+                  {[
+                    [checks.length,    '8+ characters'],
+                    [checks.uppercase, 'One uppercase letter'],
+                    [checks.number,    'One number'],
+                    [checks.special,   'One special character (!@#$%^&*...)'],
+                  ].map(([ok, label]) => (
+                    <li key={label} className={`flex items-center gap-1.5 text-xs ${ok ? 'text-green-600' : 'text-gray-400'}`}>
+                      <span>{ok ? '✓' : '○'}</span> {label}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             {error && (
@@ -110,7 +136,7 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (mode === 'register' && !passwordValid)}
               className="w-full py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50"
             >
               {loading ? 'Loading…' : mode === 'login' ? 'Sign In' : 'Create Account'}
