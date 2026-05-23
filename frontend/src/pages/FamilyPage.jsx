@@ -402,7 +402,20 @@ function FamilyGroupPanel() {
         </div>
       </div>
 
-      {group ? (
+      {group && !group.members.find(m => m.username === user?.username) ? (
+        /* Pending approval state */
+        <div className="text-center py-6">
+          <p className="text-2xl mb-2">⏳</p>
+          <p className="font-medium text-gray-700">{group.name}</p>
+          <p className="text-sm text-gray-400 mt-1">Your request to join is waiting for approval from a Head of Household.</p>
+          <button
+            onClick={handleLeave}
+            className="mt-4 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors"
+          >
+            Cancel request
+          </button>
+        </div>
+      ) : group ? (
         <>
           <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
             <div>
