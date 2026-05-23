@@ -14,7 +14,8 @@ A responsive full-stack web app for planning weekly family meals, tracking nutri
 - **Family Members** — add family member profiles with allergies, foods to avoid, and preferences; meals are filtered accordingly when planning
 - **Group Size Scaling** — set household size (adults, children, toddlers) and add per-day guests; grocery quantities scale automatically
 - **Nutrition Tracking** — 40 pre-seeded meals with calories, protein, carbs, fats, iron, calcium, vitamin C, and vitamin D
-- **User Profile** — set your first name, last name, and daily macro goals; the Dashboard adapts with your name and goal progress bars
+- **User Profile** — set your first name, last name, age, weight, and daily macro goals; the Dashboard adapts with your name and goal progress bars
+- **Family Groups** — create a group or join one with a shared 8-character code; joiners are held in a pending state until a Head of Household approves them; HoH can promote members, step down, and regenerate the join code; the shared calendar and grocery list are visible to all approved members
 
 ## Tech Stack
 
@@ -45,7 +46,8 @@ Meal_Prep_planner/
 │   │       ├── grocery.py   # aggregated grocery list with quantity scaling
 │   │       ├── family.py    # family member CRUD
 │   │       ├── household.py # household size settings + per-day guests
-│   │       └── profile.py   # user profile GET/PUT
+│   │       ├── profile.py   # user profile GET/PUT
+│   │       └── group.py     # family group create/join/approve/leave
 │   └── requirements.txt
 ├── frontend/
 │   └── src/
@@ -142,3 +144,13 @@ Then open **http://localhost:5173** in your browser.
 | PUT | `/api/household/settings` | Update household size |
 | GET | `/api/household/guests/{date}` | Get guests for a day |
 | PUT | `/api/household/guests/{date}` | Set guests for a day |
+| POST | `/api/group/create` | Create a family group |
+| POST | `/api/group/join` | Join a group by code |
+| GET | `/api/group/` | Get current group + members |
+| GET | `/api/group/pending` | List pending join requests (HoH only) |
+| POST | `/api/group/approve/{user_id}` | Approve a pending member (HoH only) |
+| DELETE | `/api/group/deny/{user_id}` | Deny a pending member (HoH only) |
+| POST | `/api/group/promote/{user_id}` | Promote member to Head of Household |
+| POST | `/api/group/demote` | Step down as Head of Household |
+| POST | `/api/group/regenerate-code` | Generate new join code (HoH only) |
+| DELETE | `/api/group/leave` | Leave the group |
