@@ -7,6 +7,7 @@ class UserCreate(BaseModel):
     username: str
     email: Optional[str] = None
     password: str
+    invite_code: str
 
     @field_validator('password')
     @classmethod

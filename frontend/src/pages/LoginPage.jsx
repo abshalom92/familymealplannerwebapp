@@ -15,7 +15,7 @@ export default function LoginPage() {
   const { login, register, guestLogin } = useAuth()
   const navigate = useNavigate()
   const [mode, setMode] = useState('login') // 'login' | 'register'
-  const [form, setForm] = useState({ username: '', email: '', password: '' })
+  const [form, setForm] = useState({ username: '', email: '', password: '', inviteCode: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -30,7 +30,7 @@ export default function LoginPage() {
       if (mode === 'login') {
         await login(form.username, form.password)
       } else {
-        await register(form.username, form.email, form.password)
+        await register(form.username, form.email, form.password, form.inviteCode)
       }
       navigate('/dashboard')
     } catch (err) {
@@ -92,16 +92,29 @@ export default function LoginPage() {
             </div>
 
             {mode === 'register' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email (optional)</label>
-                <input
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                  placeholder="you@example.com"
-                />
-              </div>
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Invite Code</label>
+                  <input
+                    type="text"
+                    required
+                    value={form.inviteCode}
+                    onChange={(e) => setForm({ ...form, inviteCode: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 font-mono"
+                    placeholder="Enter your invite code"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email (optional)</label>
+                  <input
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                    placeholder="you@example.com"
+                  />
+                </div>
+              </>
             )}
 
             <div>
@@ -136,7 +149,7 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              disabled={loading || (mode === 'register' && !passwordValid)}
+              disabled={loading || (mode === 'register' && (!passwordValid || !form.inviteCode.trim()))}
               className="w-full py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50"
             >
               {loading ? 'Loading…' : mode === 'login' ? 'Sign In' : 'Create Account'}

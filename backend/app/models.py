@@ -1,6 +1,7 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Date, Text, Float, JSON
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Date, Text, Float, JSON, DateTime
 from sqlalchemy.orm import relationship
 from .database import Base
+from datetime import datetime
 
 
 class User(Base):
@@ -10,6 +11,7 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=True)
     password_hash = Column(String, nullable=True)
     is_guest = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
     first_name = Column(String, nullable=True)
     last_name = Column(String, nullable=True)
     calorie_goal = Column(Integer, nullable=True)
@@ -24,6 +26,15 @@ class User(Base):
     household_settings = relationship("HouseholdSettings", back_populates="user", uselist=False, cascade="all, delete-orphan")
     day_guests = relationship("DayGuests", back_populates="user", cascade="all, delete-orphan")
     family_group_membership = relationship("FamilyGroupMember", back_populates="user", uselist=False, cascade="all, delete-orphan")
+
+
+class InviteCode(Base):
+    __tablename__ = "invite_codes"
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(16), unique=True, index=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    used = Column(Boolean, default=False)
+    used_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
 
 class FamilyGroup(Base):

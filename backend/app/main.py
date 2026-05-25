@@ -1,16 +1,27 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from .database import engine, Base, SessionLocal
-from .routers import auth, meals, calendar, grocery, family, household, profile, group
+from .routers import auth, meals, calendar, grocery, family, household, profile, group, admin
+from .limiter import limiter
 from .seed_data import seed_meals
+import os
 
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Family Meal Planner API")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+cors_origins = ["http://localhost:5173", "http://localhost:3000"]
+extra_origin = os.getenv("CORS_ORIGIN")
+if extra_origin:
+    cors_origins.append(extra_origin)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -24,6 +35,7 @@ app.include_router(family.router, prefix="/api/family", tags=["family"])
 app.include_router(household.router, prefix="/api/household", tags=["household"])
 app.include_router(profile.router, prefix="/api/profile", tags=["profile"])
 app.include_router(group.router, prefix="/api/group", tags=["group"])
+app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 
 
 @app.on_event("startup")

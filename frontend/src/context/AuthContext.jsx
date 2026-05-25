@@ -16,8 +16,8 @@ export function AuthProvider({ children }) {
     setUser({ username: data.username, isGuest: data.is_guest })
   }
 
-  const register = async (username, email, password) => {
-    const { data } = await api.post('/auth/register', { username, email, password })
+  const register = async (username, email, password, inviteCode) => {
+    const { data } = await api.post('/auth/register', { username, email, password, invite_code: inviteCode })
     localStorage.setItem('token', data.access_token)
     localStorage.setItem('user', JSON.stringify({ username: data.username, isGuest: data.is_guest }))
     setUser({ username: data.username, isGuest: data.is_guest })
@@ -27,12 +27,14 @@ export function AuthProvider({ children }) {
     const { data } = await api.post('/auth/guest')
     localStorage.setItem('token', data.access_token)
     localStorage.setItem('user', JSON.stringify({ username: data.username, isGuest: true }))
+    localStorage.setItem('guestLoginTime', String(Date.now()))
     setUser({ username: data.username, isGuest: true })
   }
 
   const logout = () => {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
+    localStorage.removeItem('guestLoginTime')
     setUser(null)
   }
 

@@ -8,6 +8,7 @@ import FamilyPage from './pages/FamilyPage'
 import DashboardPage from './pages/DashboardPage'
 import ProfilePage from './pages/ProfilePage'
 import Navbar from './components/Navbar'
+import GuestPromptModal from './components/GuestPromptModal'
 
 function ProtectedRoute({ children }) {
   const { user } = useAuth()
@@ -74,6 +75,7 @@ function AppRoutes() {
         }
       />
     </Routes>
+    <GuestPromptModal />
   )
 }
 
