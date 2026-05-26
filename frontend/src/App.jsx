@@ -18,6 +18,7 @@ function ProtectedRoute({ children }) {
 function AppRoutes() {
   const { user } = useAuth()
   return (
+    <>
     <Routes>
       <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
       <Route
@@ -76,6 +77,7 @@ function AppRoutes() {
       />
     </Routes>
     <GuestPromptModal />
+    </>
   )
 }
 
