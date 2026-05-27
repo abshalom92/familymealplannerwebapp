@@ -9,7 +9,7 @@ from ..auth_utils import get_current_user
 router = APIRouter()
 
 
-@router.post("/", response_model=schemas.WeightEntryOut, status_code=201)
+@router.post("", response_model=schemas.WeightEntryOut, status_code=201)
 def log_weight(
     body: schemas.WeightEntryCreate,
     db: Session = Depends(get_db),
@@ -27,7 +27,7 @@ def log_weight(
     return entry
 
 
-@router.get("/", response_model=List[schemas.WeightEntryOut])
+@router.get("", response_model=List[schemas.WeightEntryOut])
 def get_weight_history(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
