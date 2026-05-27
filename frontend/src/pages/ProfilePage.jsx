@@ -1,4 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import {
+  ComposedChart, Line, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer,
+} from 'recharts'
 import api from '../api/client'
 
 function Field({ label, name, value, onChange, type = 'text', placeholder = '' }) {
@@ -17,11 +21,44 @@ function Field({ label, name, value, onChange, type = 'text', placeholder = '' }
   )
 }
 
+const RANGES = { '1M': 30, '3M': 90, '6M': 180, '9M': 270, '1Y': 365, '3Y': 1095 }
+
+function todayISO() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function formatDate(iso) {
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function linearRegression(points) {
+  const n = points.length
+  if (n < 2) return null
+  const xMean = points.reduce((s, p) => s + p.x, 0) / n
+  const yMean = points.reduce((s, p) => s + p.weight, 0) / n
+  const num = points.reduce((s, p) => s + (p.x - xMean) * (p.weight - yMean), 0)
+  const den = points.reduce((s, p) => s + (p.x - xMean) ** 2, 0)
+  if (den === 0) return null
+  const slope = num / den
+  const intercept = yMean - slope * xMean
+  return { slope, intercept }
+}
+
 export default function ProfilePage() {
   const [profile, setProfile] = useState(null)
   const [form, setForm] = useState({})
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+
+  // weight tracker state
+  const [history, setHistory] = useState([])
+  const [newWeight, setNewWeight] = useState('')
+  const [newDate, setNewDate] = useState(todayISO())
+  const [loggingWeight, setLoggingWeight] = useState(false)
+  const [editingId, setEditingId] = useState(null)
+  const [editWeight, setEditWeight] = useState('')
+  const [editDate, setEditDate] = useState('')
+  const [range, setRange] = useState('3M')
 
   useEffect(() => {
     api.get('/profile').then(({ data }) => {
@@ -30,7 +67,6 @@ export default function ProfilePage() {
         first_name: data.first_name ?? '',
         last_name: data.last_name ?? '',
         age: data.age ?? '',
-        weight_lbs: data.weight_lbs ?? '',
         calorie_goal: data.calorie_goal ?? '',
         protein_goal_g: data.protein_goal_g ?? '',
         carbs_goal_g: data.carbs_goal_g ?? '',
@@ -38,6 +74,7 @@ export default function ProfilePage() {
         dietary_notes: data.dietary_notes ?? '',
       })
     })
+    api.get('/weight').then(({ data }) => setHistory(data))
   }, [])
 
   const handleChange = (e) => {
@@ -53,7 +90,6 @@ export default function ProfilePage() {
         first_name: form.first_name || null,
         last_name: form.last_name || null,
         age: form.age ? parseInt(form.age) : null,
-        weight_lbs: form.weight_lbs ? parseFloat(form.weight_lbs) : null,
         calorie_goal: form.calorie_goal ? parseInt(form.calorie_goal) : null,
         protein_goal_g: form.protein_goal_g ? parseInt(form.protein_goal_g) : null,
         carbs_goal_g: form.carbs_goal_g ? parseInt(form.carbs_goal_g) : null,
@@ -67,6 +103,73 @@ export default function ProfilePage() {
       setSaving(false)
     }
   }
+
+  const handleLogWeight = async () => {
+    const w = parseFloat(newWeight)
+    if (!w || w <= 0) return
+    setLoggingWeight(true)
+    try {
+      const { data } = await api.post('/weight', {
+        weight_lbs: w,
+        logged_at: `${newDate}T12:00:00`,
+      })
+      setHistory(prev => [...prev, data].sort((a, b) => new Date(a.logged_at) - new Date(b.logged_at)))
+      setNewWeight('')
+      setNewDate(todayISO())
+    } finally {
+      setLoggingWeight(false)
+    }
+  }
+
+  const startEdit = (entry) => {
+    setEditingId(entry.id)
+    setEditWeight(String(entry.weight_lbs))
+    setEditDate(entry.logged_at.slice(0, 10))
+  }
+
+  const handleSaveEdit = async (id) => {
+    const w = parseFloat(editWeight)
+    if (!w || w <= 0) return
+    const { data } = await api.put(`/weight/${id}`, {
+      weight_lbs: w,
+      logged_at: `${editDate}T12:00:00`,
+    })
+    setHistory(prev =>
+      prev.map(e => e.id === id ? data : e)
+          .sort((a, b) => new Date(a.logged_at) - new Date(b.logged_at))
+    )
+    setEditingId(null)
+  }
+
+  const handleDelete = async (id) => {
+    await api.delete(`/weight/${id}`)
+    setHistory(prev => prev.filter(e => e.id !== id))
+  }
+
+  const filtered = useMemo(() => {
+    const days = RANGES[range]
+    const cutoff = new Date()
+    cutoff.setDate(cutoff.getDate() - days)
+    return history.filter(e => new Date(e.logged_at) >= cutoff)
+  }, [history, range])
+
+  const chartData = useMemo(() => {
+    if (filtered.length < 2) return []
+    const distinctDays = new Set(filtered.map(e => e.logged_at.slice(0, 10))).size
+    if (distinctDays < 2) return []
+
+    const points = filtered.map(e => ({
+      label: new Date(e.logged_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      weight: e.weight_lbs,
+      x: new Date(e.logged_at).getTime(),
+    }))
+
+    const reg = linearRegression(points)
+    if (!reg) return points
+    return points.map(p => ({ ...p, trend: parseFloat((reg.slope * p.x + reg.intercept).toFixed(1)) }))
+  }, [filtered])
+
+  const showChart = chartData.length >= 2
 
   if (!profile) {
     return (
@@ -100,7 +203,6 @@ export default function ProfilePage() {
             <Field label="First Name" name="first_name" value={form.first_name} onChange={handleChange} placeholder="Jane" />
             <Field label="Last Name" name="last_name" value={form.last_name} onChange={handleChange} placeholder="Doe" />
             <Field label="Age" name="age" value={form.age} onChange={handleChange} type="number" placeholder="32" />
-            <Field label="Weight (lbs)" name="weight_lbs" value={form.weight_lbs} onChange={handleChange} type="number" placeholder="160" />
           </div>
           <div className="mt-4">
             <label className="block text-sm font-medium text-gray-600 mb-1">Email</label>
@@ -149,6 +251,161 @@ export default function ProfilePage() {
           {saved && <span className="text-sm text-green-600 font-medium">Saved!</span>}
         </div>
       </form>
+
+      {/* Weight Tracker */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm mt-6">
+        <h2 className="font-semibold text-gray-700 mb-4">Weight Tracker</h2>
+
+        {/* Log form */}
+        <div className="flex gap-2 mb-5">
+          <input
+            type="number"
+            value={newWeight}
+            onChange={e => setNewWeight(e.target.value)}
+            placeholder="lbs"
+            min="1"
+            step="0.1"
+            className="w-24 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+          />
+          <input
+            type="date"
+            value={newDate}
+            onChange={e => setNewDate(e.target.value)}
+            className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+          />
+          <button
+            onClick={handleLogWeight}
+            disabled={loggingWeight || !newWeight}
+            className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-xl transition-colors disabled:opacity-50"
+          >
+            {loggingWeight ? 'Logging…' : 'Log'}
+          </button>
+        </div>
+
+        {/* Chart */}
+        {showChart && (
+          <div className="mb-5">
+            <div className="flex gap-1 mb-3">
+              {Object.keys(RANGES).map(r => (
+                <button
+                  key={r}
+                  onClick={() => setRange(r)}
+                  className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-colors ${
+                    range === r
+                      ? 'bg-green-600 text-white'
+                      : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                  }`}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+            <ResponsiveContainer width="100%" height={200}>
+              <ComposedChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                <YAxis
+                  domain={['auto', 'auto']}
+                  tick={{ fontSize: 11 }}
+                  tickFormatter={v => `${v}`}
+                  width={40}
+                />
+                <Tooltip
+                  formatter={(val, name) => [
+                    `${val} lbs`,
+                    name === 'trend' ? 'Trend' : 'Weight',
+                  ]}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="weight"
+                  stroke="#16a34a"
+                  strokeWidth={2}
+                  dot={{ r: 3, fill: '#16a34a' }}
+                  activeDot={{ r: 5 }}
+                  connectNulls
+                />
+                <Line
+                  type="monotone"
+                  dataKey="trend"
+                  stroke="#9ca3af"
+                  strokeWidth={1.5}
+                  strokeDasharray="5 3"
+                  dot={false}
+                  connectNulls
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+
+        {/* History list */}
+        {history.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-4">No entries yet — log your first weight above.</p>
+        ) : (
+          <div className="space-y-1 max-h-56 overflow-y-auto">
+            {[...history].reverse().map(entry => (
+              <div
+                key={entry.id}
+                className="flex items-center gap-2 text-sm py-1.5 border-b border-gray-50 last:border-0"
+              >
+                {editingId === entry.id ? (
+                  <>
+                    <input
+                      type="number"
+                      value={editWeight}
+                      onChange={e => setEditWeight(e.target.value)}
+                      min="1"
+                      step="0.1"
+                      className="w-20 border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+                    />
+                    <span className="text-gray-400 text-xs">lbs</span>
+                    <input
+                      type="date"
+                      value={editDate}
+                      onChange={e => setEditDate(e.target.value)}
+                      className="border border-gray-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+                    />
+                    <div className="ml-auto flex gap-1">
+                      <button
+                        onClick={() => handleSaveEdit(entry.id)}
+                        className="px-2.5 py-1 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => setEditingId(null)}
+                        className="px-2.5 py-1 bg-gray-100 text-gray-600 text-xs rounded-lg hover:bg-gray-200"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <span className="font-medium text-gray-800">{entry.weight_lbs} lbs</span>
+                    <span className="text-gray-400 text-xs">{formatDate(entry.logged_at)}</span>
+                    <div className="ml-auto flex gap-1">
+                      <button
+                        onClick={() => startEdit(entry)}
+                        className="px-2.5 py-1 text-xs text-gray-500 bg-gray-100 rounded-lg hover:bg-gray-200"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(entry.id)}
+                        className="px-2.5 py-1 text-xs text-red-500 bg-red-50 rounded-lg hover:bg-red-100"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

@@ -26,6 +26,7 @@ class User(Base):
     household_settings = relationship("HouseholdSettings", back_populates="user", uselist=False, cascade="all, delete-orphan")
     day_guests = relationship("DayGuests", back_populates="user", cascade="all, delete-orphan")
     family_group_membership = relationship("FamilyGroupMember", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    weight_entries = relationship("WeightEntry", back_populates="user", cascade="all, delete-orphan")
 
 
 class InviteCode(Base):
@@ -120,6 +121,15 @@ class MealIngredient(Base):
     unit = Column(String)
     category = Column(String)  # produce, dairy, meat, grains, pantry
     meal = relationship("Meal", back_populates="ingredients")
+
+
+class WeightEntry(Base):
+    __tablename__ = "weight_entries"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    weight_lbs = Column(Float, nullable=False)
+    logged_at = Column(DateTime, default=datetime.utcnow)
+    user = relationship("User", back_populates="weight_entries")
 
 
 class MealPlan(Base):

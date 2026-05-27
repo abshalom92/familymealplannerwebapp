@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, model_validator, field_validator
 from typing import Optional, List
-from datetime import date
+from datetime import date, datetime
 
 
 class UserCreate(BaseModel):
@@ -229,6 +229,25 @@ class FamilyMemberOut(BaseModel):
     foods_to_avoid: List[str] = []
     food_preferences: List[str] = []
     weight_lbs: Optional[float] = None
+
+    class Config:
+        from_attributes = True
+
+
+class WeightEntryCreate(BaseModel):
+    weight_lbs: float
+    logged_at: Optional[datetime] = None
+
+
+class WeightEntryUpdate(BaseModel):
+    weight_lbs: Optional[float] = None
+    logged_at: Optional[datetime] = None
+
+
+class WeightEntryOut(BaseModel):
+    id: int
+    weight_lbs: float
+    logged_at: datetime
 
     class Config:
         from_attributes = True

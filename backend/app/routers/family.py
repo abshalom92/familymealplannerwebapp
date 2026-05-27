@@ -30,6 +30,7 @@ def create_family_member(
         allergies=body.allergies,
         foods_to_avoid=body.foods_to_avoid,
         food_preferences=body.food_preferences,
+        weight_lbs=body.weight_lbs,
     )
     db.add(member)
     db.commit()
@@ -58,6 +59,8 @@ def update_family_member(
         member.foods_to_avoid = body.foods_to_avoid
     if body.food_preferences is not None:
         member.food_preferences = body.food_preferences
+    if body.weight_lbs is not None:
+        member.weight_lbs = body.weight_lbs
     db.commit()
     db.refresh(member)
     return member
