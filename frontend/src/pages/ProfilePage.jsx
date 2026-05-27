@@ -59,6 +59,7 @@ export default function ProfilePage() {
   const [editWeight, setEditWeight] = useState('')
   const [editDate, setEditDate] = useState('')
   const [range, setRange] = useState('3M')
+  const [pendingBackdate, setPendingBackdate] = useState(false)
 
   useEffect(() => {
     api.get('/profile').then(({ data }) => {
@@ -104,9 +105,20 @@ export default function ProfilePage() {
     }
   }
 
-  const handleLogWeight = async () => {
+  const handleLogWeight = () => {
     const w = parseFloat(newWeight)
     if (!w || w <= 0) return
+    if (newDate < todayISO()) {
+      setPendingBackdate(true)
+      return
+    }
+    submitWeight()
+  }
+
+  const submitWeight = async () => {
+    const w = parseFloat(newWeight)
+    if (!w || w <= 0) return
+    setPendingBackdate(false)
     setLoggingWeight(true)
     try {
       const { data } = await api.post('/weight', {
@@ -281,6 +293,26 @@ export default function ProfilePage() {
             {loggingWeight ? 'Logging…' : 'Log'}
           </button>
         </div>
+
+        {pendingBackdate && (
+          <div className="mb-5 flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm">
+            <span className="text-amber-800">This date is in the past. Would you like to add a backdated entry?</span>
+            <div className="flex gap-2 ml-4 shrink-0">
+              <button
+                onClick={submitWeight}
+                className="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium rounded-lg transition-colors"
+              >
+                Yes, add it
+              </button>
+              <button
+                onClick={() => setPendingBackdate(false)}
+                className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-medium rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Chart */}
         {showChart && (
