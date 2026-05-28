@@ -21,6 +21,7 @@ class User(Base):
     dietary_notes = Column(Text, nullable=True)
     age = Column(Integer, nullable=True)
     weight_lbs = Column(Float, nullable=True)
+    timezone = Column(String, nullable=True)
     meal_plans = relationship("MealPlan", back_populates="user", cascade="all, delete-orphan")
     family_members = relationship("FamilyMember", back_populates="user", cascade="all, delete-orphan")
     household_settings = relationship("HouseholdSettings", back_populates="user", uselist=False, cascade="all, delete-orphan")

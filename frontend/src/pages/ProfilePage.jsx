@@ -23,8 +23,11 @@ function Field({ label, name, value, onChange, type = 'text', placeholder = '' }
 
 const RANGES = { '1M': 30, '3M': 90, '6M': 180, '9M': 270, '1Y': 365, '3Y': 1095 }
 
-function todayISO() {
-  return new Date().toISOString().slice(0, 10)
+// Issue #3 fix: use local date via en-CA locale (YYYY-MM-DD) with explicit timezone
+function todayISO(tz) {
+  return new Date().toLocaleDateString('en-CA', {
+    timeZone: tz || Intl.DateTimeFormat().resolvedOptions().timeZone,
+  })
 }
 
 function formatDate(iso) {
@@ -43,6 +46,50 @@ function linearRegression(points) {
   const intercept = yMean - slope * xMean
   return { slope, intercept }
 }
+
+const TIMEZONES = [
+  'UTC',
+  'America/New_York',
+  'America/Chicago',
+  'America/Denver',
+  'America/Los_Angeles',
+  'America/Anchorage',
+  'America/Phoenix',
+  'Pacific/Honolulu',
+  'America/Toronto',
+  'America/Vancouver',
+  'America/Sao_Paulo',
+  'America/Argentina/Buenos_Aires',
+  'America/Lima',
+  'America/Bogota',
+  'America/Santiago',
+  'Europe/London',
+  'Europe/Paris',
+  'Europe/Berlin',
+  'Europe/Rome',
+  'Europe/Madrid',
+  'Europe/Amsterdam',
+  'Europe/Stockholm',
+  'Europe/Moscow',
+  'Africa/Cairo',
+  'Africa/Nairobi',
+  'Africa/Lagos',
+  'Africa/Johannesburg',
+  'Asia/Dubai',
+  'Asia/Kolkata',
+  'Asia/Dhaka',
+  'Asia/Bangkok',
+  'Asia/Singapore',
+  'Asia/Tokyo',
+  'Asia/Seoul',
+  'Asia/Shanghai',
+  'Asia/Hong_Kong',
+  'Australia/Sydney',
+  'Australia/Melbourne',
+  'Australia/Perth',
+  'Pacific/Auckland',
+  'Pacific/Fiji',
+]
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState(null)
@@ -74,10 +121,16 @@ export default function ProfilePage() {
         carbs_goal_g: data.carbs_goal_g ?? '',
         fats_goal_g: data.fats_goal_g ?? '',
         dietary_notes: data.dietary_notes ?? '',
+        timezone: data.timezone ?? '',
       })
+      // Sync the date input to the user's saved timezone
+      setNewDate(todayISO(data.timezone || undefined))
     })
     api.get('/weight').then(({ data }) => setHistory(data))
   }, [])
+
+  // Issue #3/4: effective timezone — stored preference falls back to browser's detected zone
+  const effectiveTz = profile?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
 
   const handleChange = (e) => {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
@@ -97,6 +150,7 @@ export default function ProfilePage() {
         carbs_goal_g: form.carbs_goal_g ? parseInt(form.carbs_goal_g) : null,
         fats_goal_g: form.fats_goal_g ? parseInt(form.fats_goal_g) : null,
         dietary_notes: form.dietary_notes || null,
+        timezone: form.timezone || null,
       }
       const { data } = await api.put('/profile', payload)
       setProfile(data)
@@ -109,12 +163,13 @@ export default function ProfilePage() {
   const handleLogWeight = () => {
     const w = parseFloat(newWeight)
     if (!w || w <= 0) return
-    if (newDate > todayISO()) {
+    const today = todayISO(effectiveTz)
+    if (newDate > today) {
       setWeightError('Future dated entries are not allowed. Please check your date and resubmit.')
       return
     }
     setWeightError('')
-    if (newDate < todayISO()) {
+    if (newDate < today) {
       setPendingBackdate(true)
       return
     }
@@ -133,7 +188,7 @@ export default function ProfilePage() {
       })
       setHistory(prev => [...prev, data].sort((a, b) => new Date(a.logged_at) - new Date(b.logged_at)))
       setNewWeight('')
-      setNewDate(todayISO())
+      setNewDate(todayISO(effectiveTz))
     } finally {
       setLoggingWeight(false)
     }
@@ -221,6 +276,21 @@ export default function ProfilePage() {
             <Field label="First Name" name="first_name" value={form.first_name} onChange={handleChange} placeholder="Jane" />
             <Field label="Last Name" name="last_name" value={form.last_name} onChange={handleChange} placeholder="Doe" />
             <Field label="Age" name="age" value={form.age} onChange={handleChange} type="number" placeholder="32" />
+            {/* Issue #4: timezone setting */}
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">Timezone</label>
+              <select
+                name="timezone"
+                value={form.timezone ?? ''}
+                onChange={handleChange}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 bg-white"
+              >
+                <option value="">— Browser default ({Intl.DateTimeFormat().resolvedOptions().timeZone})</option>
+                {TIMEZONES.map(tz => (
+                  <option key={tz} value={tz}>{tz}</option>
+                ))}
+              </select>
+            </div>
           </div>
           <div className="mt-4">
             <label className="block text-sm font-medium text-gray-600 mb-1">Email</label>
@@ -324,8 +394,8 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* Chart */}
-        {showChart && (
+        {/* Issue #2 fix: range buttons always visible when history exists; chart/message shown below */}
+        {history.length > 0 && (
           <div className="mb-5">
             <div className="flex gap-1 mb-3">
               {Object.keys(RANGES).map(r => (
@@ -342,42 +412,48 @@ export default function ProfilePage() {
                 </button>
               ))}
             </div>
-            <ResponsiveContainer width="100%" height={200}>
-              <ComposedChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                <YAxis
-                  domain={['auto', 'auto']}
-                  tick={{ fontSize: 11 }}
-                  tickFormatter={v => `${v}`}
-                  width={40}
-                />
-                <Tooltip
-                  formatter={(val, name) => [
-                    `${val} lbs`,
-                    name === 'trend' ? 'Trend' : 'Weight',
-                  ]}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="weight"
-                  stroke="#16a34a"
-                  strokeWidth={2}
-                  dot={{ r: 3, fill: '#16a34a' }}
-                  activeDot={{ r: 5 }}
-                  connectNulls
-                />
-                <Line
-                  type="monotone"
-                  dataKey="trend"
-                  stroke="#9ca3af"
-                  strokeWidth={1.5}
-                  strokeDasharray="5 3"
-                  dot={false}
-                  connectNulls
-                />
-              </ComposedChart>
-            </ResponsiveContainer>
+            {showChart ? (
+              <ResponsiveContainer width="100%" height={200}>
+                <ComposedChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                  <YAxis
+                    domain={['auto', 'auto']}
+                    tick={{ fontSize: 11 }}
+                    tickFormatter={v => `${v}`}
+                    width={40}
+                  />
+                  <Tooltip
+                    formatter={(val, name) => [
+                      `${val} lbs`,
+                      name === 'trend' ? 'Trend' : 'Weight',
+                    ]}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="weight"
+                    stroke="#16a34a"
+                    strokeWidth={2}
+                    dot={{ r: 3, fill: '#16a34a' }}
+                    activeDot={{ r: 5 }}
+                    connectNulls
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="trend"
+                    stroke="#9ca3af"
+                    strokeWidth={1.5}
+                    strokeDasharray="5 3"
+                    dot={false}
+                    connectNulls
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            ) : filtered.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-6">No entries in this time range.</p>
+            ) : (
+              <p className="text-sm text-gray-400 text-center py-6">Add at least 2 entries on different days to see the trend graph.</p>
+            )}
           </div>
         )}
 

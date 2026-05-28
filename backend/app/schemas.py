@@ -189,6 +189,7 @@ class ProfileOut(BaseModel):
     dietary_notes: Optional[str] = None
     age: Optional[int] = None
     weight_lbs: Optional[float] = None
+    timezone: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -204,6 +205,7 @@ class ProfileUpdate(BaseModel):
     dietary_notes: Optional[str] = None
     age: Optional[int] = None
     weight_lbs: Optional[float] = None
+    timezone: Optional[str] = None
 
 
 class FamilyMemberCreate(BaseModel):
