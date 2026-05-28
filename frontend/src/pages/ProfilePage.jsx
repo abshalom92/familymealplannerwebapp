@@ -60,6 +60,7 @@ export default function ProfilePage() {
   const [editDate, setEditDate] = useState('')
   const [range, setRange] = useState('3M')
   const [pendingBackdate, setPendingBackdate] = useState(false)
+  const [weightError, setWeightError] = useState('')
 
   useEffect(() => {
     api.get('/profile').then(({ data }) => {
@@ -108,6 +109,11 @@ export default function ProfilePage() {
   const handleLogWeight = () => {
     const w = parseFloat(newWeight)
     if (!w || w <= 0) return
+    if (newDate > todayISO()) {
+      setWeightError('Future dated entries are not allowed. Please check your date and resubmit.')
+      return
+    }
+    setWeightError('')
     if (newDate < todayISO()) {
       setPendingBackdate(true)
       return
@@ -282,7 +288,7 @@ export default function ProfilePage() {
           <input
             type="date"
             value={newDate}
-            onChange={e => setNewDate(e.target.value)}
+            onChange={e => { setNewDate(e.target.value); setWeightError('') }}
             className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
           />
           <button
@@ -293,6 +299,10 @@ export default function ProfilePage() {
             {loggingWeight ? 'Logging…' : 'Log'}
           </button>
         </div>
+
+        {weightError && (
+          <p className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">{weightError}</p>
+        )}
 
         {pendingBackdate && (
           <div className="mb-5 flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm">
