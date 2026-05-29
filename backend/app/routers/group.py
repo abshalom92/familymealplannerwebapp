@@ -13,6 +13,9 @@ def _generate_code():
 
 
 def _member_dict(m):
+    prefs = []
+    for fm in (m.user.family_members or []):
+        prefs.extend(fm.food_preferences or [])
     return {
         "user_id": m.user_id,
         "username": m.user.username,
@@ -20,6 +23,7 @@ def _member_dict(m):
         "last_name": m.user.last_name,
         "is_head": m.is_head,
         "status": m.status,
+        "food_preferences": list(dict.fromkeys(prefs)),
     }
 
 

@@ -44,6 +44,24 @@ def list_meals(
     return safe
 
 
+@router.get("/ingredients/search", response_model=List[str])
+def search_ingredients(
+    q: str = Query(""),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    if len(q) < 2:
+        return []
+    results = (
+        db.query(models.MealIngredient.name)
+        .filter(models.MealIngredient.name.ilike(f"%{q}%"))
+        .distinct()
+        .limit(10)
+        .all()
+    )
+    return [r[0] for r in results]
+
+
 @router.get("/{meal_id}", response_model=schemas.MealOut)
 def get_meal(meal_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     meal = db.query(models.Meal).filter(models.Meal.id == meal_id).first()

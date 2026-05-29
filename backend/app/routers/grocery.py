@@ -67,12 +67,21 @@ def get_grocery_list(
             aggregated[key]["category"] = ing.category
             aggregated[key]["name"] = ing.name
 
+    # Build allergen set from all family members across the group (9e)
+    all_family_members = db.query(models.FamilyMember).filter(
+        models.FamilyMember.user_id.in_(user_ids)
+    ).all()
+    allergens = set()
+    for fm in all_family_members:
+        allergens.update(kw.lower() for kw in (fm.allergies or []))
+
     items = [
         schemas.GroceryItem(
             name=v["name"],
             total_quantity=round(v["total_quantity"], 2),
             unit=v["unit"],
             category=v["category"],
+            allergen_warning=bool(allergens and any(a in v["name"].lower() for a in allergens)),
         )
         for v in aggregated.values()
     ]

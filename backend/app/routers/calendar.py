@@ -67,8 +67,24 @@ def autofill_week(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    # Load all meals grouped by type (including 'any' as wildcards)
+    # Load all meals, then filter out any blocked by the user's family allergens (9a)
     all_meals = db.query(models.Meal).all()
+    family_members = db.query(models.FamilyMember).filter(
+        models.FamilyMember.user_id == current_user.id
+    ).all()
+    blocked = set()
+    for fm in family_members:
+        blocked.update(kw.lower() for kw in (fm.allergies or []))
+        blocked.update(kw.lower() for kw in (fm.foods_to_avoid or []))
+    if blocked:
+        safe = []
+        for meal in all_meals:
+            tokens = {ing.name.lower() for ing in meal.ingredients}
+            tokens |= {ing.category.lower() for ing in meal.ingredients if ing.category}
+            if not any(any(b in t for t in tokens) for b in blocked):
+                safe.append(meal)
+        all_meals = safe
+
     meal_pool = {
         slot: [m for m in all_meals if m.meal_type == slot or m.meal_type == "any"]
         for slot in req.slots

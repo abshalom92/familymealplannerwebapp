@@ -103,6 +103,7 @@ class GroceryItem(BaseModel):
     total_quantity: float
     unit: str
     category: str
+    allergen_warning: bool = False
 
 
 class HouseholdSettingsIn(BaseModel):
@@ -153,6 +154,7 @@ class FamilyGroupMemberOut(BaseModel):
     last_name: Optional[str] = None
     is_head: bool = False
     status: str = 'approved'
+    food_preferences: List[str] = []
 
     class Config:
         from_attributes = True

@@ -1,17 +1,20 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import api from '../api/client'
 import { useAuth } from '../context/AuthContext'
 
 const PREFERENCE_SUGGESTIONS = ['vegetarian', 'vegan', 'gluten-free', 'low-carb', 'dairy-free', 'halal', 'kosher']
 const ALLERGY_SUGGESTIONS = ['nuts', 'peanuts', 'dairy', 'eggs', 'shellfish', 'fish', 'soy', 'wheat', 'gluten']
 
-function TagInput({ label, tags, onChange, suggestions = [] }) {
+function TagInput({ label, tags, onChange, suggestions = [], apiSearch = false }) {
   const [input, setInput] = useState('')
+  const [dropdownResults, setDropdownResults] = useState([])
+  const debounceRef = useRef(null)
 
   const addTag = (val) => {
     const tag = val.trim().toLowerCase()
     if (tag && !tags.includes(tag)) onChange([...tags, tag])
     setInput('')
+    setDropdownResults([])
   }
 
   const removeTag = (tag) => onChange(tags.filter((t) => t !== tag))
@@ -25,10 +28,24 @@ function TagInput({ label, tags, onChange, suggestions = [] }) {
     }
   }
 
+  const handleInputChange = (e) => {
+    const val = e.target.value
+    setInput(val)
+    if (apiSearch && val.length >= 2) {
+      clearTimeout(debounceRef.current)
+      debounceRef.current = setTimeout(async () => {
+        const res = await api.get(`/meals/ingredients/search?q=${encodeURIComponent(val)}`)
+        setDropdownResults(res.data.filter((r) => !tags.includes(r.toLowerCase())))
+      }, 300)
+    } else {
+      setDropdownResults([])
+    }
+  }
+
   const unused = suggestions.filter((s) => !tags.includes(s))
 
   return (
-    <div>
+    <div className="relative">
       <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
       <div className="border border-gray-200 rounded-lg p-2 flex flex-wrap gap-1.5 min-h-[42px] focus-within:ring-2 focus-within:ring-green-500 focus-within:border-green-500">
         {tags.map((tag) => (
@@ -40,12 +57,28 @@ function TagInput({ label, tags, onChange, suggestions = [] }) {
         <input
           type="text"
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={handleInputChange}
           onKeyDown={handleKey}
+          onBlur={() => setTimeout(() => setDropdownResults([]), 150)}
           placeholder={tags.length ? '' : 'Type and press Enter…'}
           className="flex-1 outline-none text-sm min-w-[120px] bg-transparent"
         />
       </div>
+      {dropdownResults.length > 0 && (
+        <ul className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-40 overflow-y-auto">
+          {dropdownResults.map((r) => (
+            <li key={r}>
+              <button
+                type="button"
+                onMouseDown={() => addTag(r)}
+                className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-green-50 hover:text-green-700"
+              >
+                {r}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
       {unused.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-1.5">
           {unused.map((s) => (
@@ -163,12 +196,14 @@ function MemberForm({ initial = emptyForm, onSave, onCancel }) {
         tags={form.allergies}
         onChange={set('allergies')}
         suggestions={ALLERGY_SUGGESTIONS}
+        apiSearch
       />
       <TagInput
         label="Foods to Avoid"
         tags={form.foods_to_avoid}
         onChange={set('foods_to_avoid')}
         suggestions={[]}
+        apiSearch
       />
       <PreferenceTagInput
         label="Food Preferences"
@@ -492,6 +527,11 @@ function FamilyGroupPanel() {
                       {m.is_head && <span className="ml-1 text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-semibold">HoH</span>}
                     </p>
                     <p className="text-[10px] text-gray-400">@{m.username}</p>
+                    {m.food_preferences?.length > 0 && (
+                      <p className="text-[10px] text-green-600 mt-0.5">
+                        Prefers: {m.food_preferences.join(', ')}
+                      </p>
+                    )}
                   </div>
                   {iAmHoH && !isMe && !m.is_head && (
                     <button onClick={() => handlePromote(m.user_id)}

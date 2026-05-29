@@ -1,32 +1,44 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import api from '../api/client'
 
 const SLOT_LABELS = { breakfast: '☀️ Breakfast', lunch: '🌤 Lunch', dinner: '🌙 Dinner' }
 const DAY_LABELS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+
+function mealContainsAllergen(meal, allergenSet) {
+  if (allergenSet.size === 0) return false
+  return meal.ingredients?.some((ing) =>
+    [...allergenSet].some(
+      (a) => ing.name.toLowerCase().includes(a) || (ing.category && ing.category.toLowerCase().includes(a))
+    )
+  )
+}
 
 export default function MealPickerModal({ slot, weekStart, onClose, onSelect }) {
   const [meals, setMeals] = useState([])
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
   const [familyMembers, setFamilyMembers] = useState([])
-  const [selectedMemberId, setSelectedMemberId] = useState('')
 
   useEffect(() => {
     api.get('/family/').then((r) => setFamilyMembers(r.data))
+    api.get('/meals/').then((r) => setMeals(r.data))
   }, [])
 
-  useEffect(() => {
-    const params = selectedMemberId ? { member_id: selectedMemberId } : {}
-    api.get('/meals/', { params }).then((r) => setMeals(r.data))
-  }, [selectedMemberId])
+  // Build allergen set from ALL family members (9b)
+  const allergenSet = useMemo(() => {
+    const s = new Set()
+    for (const m of familyMembers) {
+      for (const a of (m.allergies || [])) s.add(a.toLowerCase())
+      for (const a of (m.foods_to_avoid || [])) s.add(a.toLowerCase())
+    }
+    return s
+  }, [familyMembers])
 
   const filtered = meals.filter((m) => {
     const matchType = filter === 'all' || m.meal_type === filter || m.meal_type === 'any'
     const matchSearch = m.name.toLowerCase().includes(search.toLowerCase())
     return matchType && matchSearch
   })
-
-  const selectedMember = familyMembers.find((m) => m.id === Number(selectedMemberId))
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
@@ -42,25 +54,10 @@ export default function MealPickerModal({ slot, weekStart, onClose, onSelect }) 
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">✕</button>
           </div>
 
-          {familyMembers.length > 0 && (
-            <div className="mb-3">
-              <select
-                value={selectedMemberId}
-                onChange={(e) => setSelectedMemberId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
-              >
-                <option value="">Filter by family member…</option>
-                {familyMembers.map((m) => (
-                  <option key={m.id} value={m.id}>{m.name}</option>
-                ))}
-              </select>
-              {selectedMember && (selectedMember.allergies?.length > 0 || selectedMember.foods_to_avoid?.length > 0) && (
-                <p className="text-xs text-orange-600 mt-1 flex items-center gap-1">
-                  <span>⚠️</span>
-                  Hiding meals with: {[...selectedMember.allergies, ...selectedMember.foods_to_avoid].join(', ')}
-                </p>
-              )}
-            </div>
+          {allergenSet.size > 0 && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-1.5 mb-3">
+              <span className="font-bold">(!)</span> Meals highlighted in red contain allergens: {[...allergenSet].join(', ')}
+            </p>
           )}
 
           <input
@@ -90,23 +87,33 @@ export default function MealPickerModal({ slot, weekStart, onClose, onSelect }) 
             <p className="text-center text-gray-400 py-8">No meals found</p>
           ) : (
             <div className="space-y-2">
-              {filtered.map((meal) => (
-                <button
-                  key={meal.id}
-                  onClick={() => onSelect(meal)}
-                  className="w-full text-left px-4 py-3 rounded-xl hover:bg-green-50 border border-gray-100 hover:border-green-200 transition-colors group"
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-medium text-gray-800 group-hover:text-green-700">{meal.name}</p>
-                      <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{meal.description}</p>
+              {filtered.map((meal) => {
+                const hasAllergen = mealContainsAllergen(meal, allergenSet)
+                return (
+                  <button
+                    key={meal.id}
+                    onClick={() => onSelect(meal)}
+                    className={`w-full text-left px-4 py-3 rounded-xl border transition-colors group ${
+                      hasAllergen
+                        ? 'border-red-200 bg-red-50 hover:bg-red-100'
+                        : 'border-gray-100 hover:bg-green-50 hover:border-green-200'
+                    }`}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className={`font-medium ${hasAllergen ? 'text-red-700' : 'text-gray-800 group-hover:text-green-700'}`}>
+                          {hasAllergen && <span className="font-bold mr-1">(!)</span>}
+                          {meal.name}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{meal.description}</p>
+                      </div>
+                      <span className="text-xs text-gray-400 ml-2 shrink-0">
+                        {meal.prep_time + meal.cook_time} min
+                      </span>
                     </div>
-                    <span className="text-xs text-gray-400 ml-2 shrink-0">
-                      {meal.prep_time + meal.cook_time} min
-                    </span>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                )
+              })}
             </div>
           )}
         </div>

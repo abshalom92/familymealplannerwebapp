@@ -138,25 +138,27 @@ export default function GroceryPage() {
                 <ul className="divide-y divide-gray-100">
                   {catItems.map((item) => {
                     const key = `${item.name}-${item.unit}`
+                    const warn = item.allergen_warning && !checked[key]
                     return (
                       <li
                         key={key}
                         onClick={() => toggleCheck(key)}
-                        className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-white/50 transition-colors"
+                        className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors ${warn ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-white/50'}`}
                       >
                         <div
                           className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
                             checked[key]
                               ? 'bg-green-500 border-green-500'
-                              : 'border-gray-300'
+                              : warn ? 'border-red-300' : 'border-gray-300'
                           }`}
                         >
                           {checked[key] && <span className="text-white text-xs">✓</span>}
                         </div>
-                        <span className={`flex-1 text-sm text-gray-700 ${checked[key] ? 'line-through text-gray-400' : ''}`}>
+                        <span className={`flex-1 text-sm ${checked[key] ? 'line-through text-gray-400' : warn ? 'text-red-700 font-medium' : 'text-gray-700'}`}>
+                          {warn && <span className="font-bold mr-1">(!)</span>}
                           {item.name}
                         </span>
-                        <span className={`text-sm font-medium ${checked[key] ? 'text-gray-300' : 'text-gray-600'}`}>
+                        <span className={`text-sm font-medium ${checked[key] ? 'text-gray-300' : warn ? 'text-red-500' : 'text-gray-600'}`}>
                           {item.total_quantity} {item.unit}
                         </span>
                       </li>
