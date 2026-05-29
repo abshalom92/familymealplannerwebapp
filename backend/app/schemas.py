@@ -166,6 +166,9 @@ class FamilyGroupOut(BaseModel):
     join_code: str
     owner_id: int
     members: List[FamilyGroupMemberOut] = []
+    planner_id: Optional[int] = None
+    planner_claimed_at: Optional[datetime] = None
+    planner_last_seen: Optional[datetime] = None
 
     class Config:
         from_attributes = True

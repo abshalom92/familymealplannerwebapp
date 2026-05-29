@@ -1,10 +1,14 @@
 import { useState, useEffect, useCallback } from 'react'
 import api from '../api/client'
 import { useAuth } from '../context/AuthContext'
+import { useOnlineStatus } from '../hooks/useOnlineStatus'
+import { offlineDB } from '../lib/offlineDB'
 import RecipeModal from '../components/RecipeModal'
 import MealPickerModal from '../components/MealPickerModal'
 import AutoFillModal from '../components/AutoFillModal'
 import DayGuestsPopover from '../components/DayGuestsPopover'
+import PlanningFlagBanner from '../components/PlanningFlagBanner'
+import OfflineConflictModal from '../components/OfflineConflictModal'
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const FULL_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -97,6 +101,8 @@ function GuestPopover({ dateStr, onClose }) {
 
 export default function CalendarPage() {
   const { user } = useAuth()
+  const isOnline = useOnlineStatus()
+
   const [weekStart, setWeekStart] = useState(() => getMondayOfWeek(new Date()))
   const [mealPlan, setMealPlan] = useState([])
   const [viewMealId, setViewMealId] = useState(null)
@@ -107,14 +113,22 @@ export default function CalendarPage() {
   const [clearConfirm, setClearConfirm] = useState(false)
   const [guestPopoverDay, setGuestPopoverDay] = useState(null)
 
-  // Group & role state
+  // Group & role
   const [isHoH, setIsHoH] = useState(false)
   const [inGroup, setInGroup] = useState(false)
   const [groupLoaded, setGroupLoaded] = useState(false)
 
+  // Planning flag (multi-HoH)
+  const [multiHoH, setMultiHoH] = useState(false)
+  const [flagHeldByMe, setFlagHeldByMe] = useState(false)
+  const [flagHolder, setFlagHolder] = useState(null)     // { username, last_seen }
+  const [plannerClaimedAt, setPlannerClaimedAt] = useState(null)
+  const [claimingFlag, setClaimingFlag] = useState(false)
+  const [showFlagConfirm, setShowFlagConfirm] = useState(false)
+
   // Pending requests
-  const [pendingRequests, setPendingRequests] = useState([])  // HoH: all group pending
-  const [myRequests, setMyRequests] = useState([])             // non-HoH: own pending
+  const [pendingRequests, setPendingRequests] = useState([])
+  const [myRequests, setMyRequests] = useState([])
 
   // Notify family dialog (13f)
   const [showNotifyDialog, setShowNotifyDialog] = useState(false)
@@ -123,16 +137,44 @@ export default function CalendarPage() {
   const [notifyLoading, setNotifyLoading] = useState(false)
   const [notifySent, setNotifySent] = useState(false)
 
-  // Actioning a request (accept/deny)
+  // Actioning a request
   const [actioning, setActioning] = useState(null)
 
-  // Load group info once
+  // Offline / sync
+  const [hasQueuedWrites, setHasQueuedWrites] = useState(false)
+  const [syncLoading, setSyncLoading] = useState(false)
+  const [conflicts, setConflicts] = useState([])
+  const [showConflictModal, setShowConflictModal] = useState(false)
+
+  const canEdit = isHoH || !inGroup
+  const flagBlocking = canEdit && multiHoH && !flagHeldByMe
+
+  // Load group info + flag state
   useEffect(() => {
     if (user?.isGuest) { setGroupLoaded(true); return }
-    api.get('/group').then(r => {
-      const me = r.data.members?.find(m => m.username === user?.username)
-      setIsHoH(me?.is_head ?? false)
+    api.get('/group').then((r) => {
+      const group = r.data
+      const me = group.members?.find((m) => m.username === user?.username)
+      const iAmHoH = me?.is_head ?? false
+      setIsHoH(iAmHoH)
       setInGroup(true)
+
+      if (iAmHoH) {
+        const hohCount = group.members.filter((m) => m.is_head).length
+        setMultiHoH(hohCount > 1)
+
+        if (hohCount > 1) {
+          setPlannerClaimedAt(group.planner_claimed_at)
+          if (group.planner_id === me.user_id) {
+            setFlagHeldByMe(true)
+            setFlagHolder(null)
+          } else if (group.planner_id) {
+            const holder = group.members.find((m) => m.user_id === group.planner_id)
+            setFlagHolder({ username: holder?.username ?? 'unknown', last_seen: group.planner_last_seen })
+            setFlagHeldByMe(false)
+          }
+        }
+      }
     }).catch(() => {
       setIsHoH(false)
       setInGroup(false)
@@ -144,6 +186,12 @@ export default function CalendarPage() {
     try {
       const { data } = await api.get('/calendar/week', { params: { week_start: formatDate(weekStart) } })
       setMealPlan(data)
+      offlineDB.cacheWeekPlan(formatDate(weekStart), data)
+    } catch {
+      if (!navigator.onLine) {
+        const cached = await offlineDB.getWeekPlan(formatDate(weekStart))
+        if (cached) setMealPlan(cached)
+      }
     } finally {
       setLoading(false)
     }
@@ -154,11 +202,11 @@ export default function CalendarPage() {
     const ws = formatDate(weekStart)
     if (isHoH) {
       api.get('/meal-requests/pending', { params: { week_start: ws } })
-        .then(r => setPendingRequests(r.data))
+        .then((r) => setPendingRequests(r.data))
         .catch(() => {})
     } else {
       api.get('/meal-requests', { params: { week_start: ws } })
-        .then(r => setMyRequests(r.data.filter(req => req.status === 'pending')))
+        .then((r) => setMyRequests(r.data.filter((req) => req.status === 'pending')))
         .catch(() => {})
     }
   }, [weekStart, isHoH, inGroup, groupLoaded])
@@ -166,18 +214,108 @@ export default function CalendarPage() {
   useEffect(() => { fetchWeek() }, [fetchWeek])
   useEffect(() => { fetchRequests() }, [fetchRequests])
 
-  const getMealForSlot = (day, slot) =>
-    mealPlan.find((p) => p.day_of_week === day && p.meal_slot === slot)
+  // Check for queued writes on mount
+  useEffect(() => {
+    offlineDB.hasQueuedWrites().then(setHasQueuedWrites)
+  }, [])
 
-  const getMyRequestForSlot = (day, slot) =>
-    myRequests.find(r => r.day_of_week === day && r.meal_slot === slot)
+  // Sync write queue when coming back online
+  useEffect(() => {
+    if (isOnline && hasQueuedWrites) {
+      syncOfflineQueue()
+    }
+  }, [isOnline]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getPendingRequestForSlot = (day, slot) =>
-    pendingRequests.find(r => r.day_of_week === day && r.meal_slot === slot)
+  const syncOfflineQueue = async () => {
+    const queue = await offlineDB.getWriteQueue()
+    if (queue.length === 0) { setHasQueuedWrites(false); return }
+
+    setSyncLoading(true)
+    try {
+      const weekStarts = [...new Set(queue.map((w) => w.weekStart))]
+      const serverPlans = {}
+      for (const ws of weekStarts) {
+        const { data } = await api.get('/calendar/week', { params: { week_start: ws } })
+        serverPlans[ws] = data
+      }
+
+      const foundConflicts = []
+      const toApply = []
+
+      for (const write of queue) {
+        const plan = serverPlans[write.weekStart] || []
+        const serverEntry = plan.find((p) => p.day_of_week === write.day && p.meal_slot === write.slot)
+
+        if (write.op === 'add') {
+          if (!serverEntry || serverEntry.meal_id === write.mealId) {
+            toApply.push({ ...write, serverEntry })
+          } else {
+            foundConflicts.push({ write, serverEntry })
+          }
+        } else if (write.op === 'remove') {
+          if (serverEntry) toApply.push({ ...write, serverEntry })
+        }
+      }
+
+      // Apply non-conflicting writes
+      for (const item of toApply) {
+        try {
+          if (item.op === 'add') {
+            await api.post('/calendar/', {
+              week_start: item.weekStart,
+              day_of_week: item.day,
+              meal_slot: item.slot,
+              meal_id: item.mealId,
+            })
+          } else if (item.op === 'remove' && item.serverEntry?.id) {
+            await api.delete(`/calendar/${item.serverEntry.id}`)
+          }
+        } catch { /* skip failed individual writes */ }
+      }
+
+      await offlineDB.clearWriteQueue()
+      setHasQueuedWrites(false)
+
+      if (foundConflicts.length > 0) {
+        setConflicts(foundConflicts)
+        setShowConflictModal(true)
+      }
+
+      fetchWeek()
+    } catch { /* network still unreliable, try again later */ } finally {
+      setSyncLoading(false)
+    }
+  }
+
+  const handleConflictResolve = async (resolved) => {
+    for (const item of resolved) {
+      if (item.keepLocal) {
+        try {
+          await api.post('/calendar/', {
+            week_start: item.write.weekStart,
+            day_of_week: item.write.day,
+            meal_slot: item.write.slot,
+            meal_id: item.write.mealId,
+          })
+        } catch { /* ignore */ }
+      }
+      // keepLocal=false: server version wins, nothing to do
+    }
+    const remaining = conflicts.filter((c) => !resolved.some((r) => r.write === c.write))
+    setConflicts(remaining)
+    if (remaining.length === 0) {
+      setShowConflictModal(false)
+      fetchWeek()
+    }
+  }
+
+  const getMealForSlot = (day, slot) => mealPlan.find((p) => p.day_of_week === day && p.meal_slot === slot)
+  const getMyRequestForSlot = (day, slot) => myRequests.find((r) => r.day_of_week === day && r.meal_slot === slot)
+  const getPendingRequestForSlot = (day, slot) => pendingRequests.find((r) => r.day_of_week === day && r.meal_slot === slot)
 
   const handleSelectMeal = async (meal) => {
     if (inGroup && !isHoH) {
-      // Request mode for non-HoH group members
+      // Non-HoH: submit request
       await api.post('/meal-requests', {
         week_start: formatDate(weekStart),
         day_of_week: pickerSlot.day,
@@ -186,16 +324,46 @@ export default function CalendarPage() {
       })
       setPickerSlot(null)
       fetchRequests()
-    } else {
-      await api.post('/calendar/', {
-        week_start: formatDate(weekStart),
-        day_of_week: pickerSlot.day,
-        meal_slot: pickerSlot.meal,
-        meal_id: meal.id,
-      })
-      setPickerSlot(null)
-      fetchWeek()
+      return
     }
+
+    if (!isOnline) {
+      // Offline write → queue
+      const write = {
+        op: 'add',
+        weekStart: formatDate(weekStart),
+        day: pickerSlot.day,
+        slot: pickerSlot.meal,
+        mealId: meal.id,
+        mealName: meal.name,
+        mealData: meal,
+      }
+      await offlineDB.queueWrite(write)
+      setMealPlan((prev) => {
+        const filtered = prev.filter((p) => !(p.day_of_week === write.day && p.meal_slot === write.slot))
+        return [...filtered, {
+          id: null,
+          week_start: write.weekStart,
+          day_of_week: write.day,
+          meal_slot: write.slot,
+          meal_id: write.mealId,
+          meal: write.mealData,
+          planned_by: user?.username,
+        }]
+      })
+      setHasQueuedWrites(true)
+      setPickerSlot(null)
+      return
+    }
+
+    await api.post('/calendar/', {
+      week_start: formatDate(weekStart),
+      day_of_week: pickerSlot.day,
+      meal_slot: pickerSlot.meal,
+      meal_id: meal.id,
+    })
+    setPickerSlot(null)
+    fetchWeek()
   }
 
   const handleClearWeek = async () => {
@@ -207,11 +375,7 @@ export default function CalendarPage() {
   const handleAutoFill = async (slots, overwrite) => {
     setAutoFillLoading(true)
     try {
-      await api.post('/calendar/autofill', {
-        week_start: formatDate(weekStart),
-        slots,
-        overwrite,
-      })
+      await api.post('/calendar/autofill', { week_start: formatDate(weekStart), slots, overwrite })
       setShowAutoFill(false)
       fetchWeek()
     } finally {
@@ -219,8 +383,15 @@ export default function CalendarPage() {
     }
   }
 
-  const handleRemoveMeal = async (e, planId) => {
+  const handleRemoveMeal = async (e, planId, day, slot) => {
     e.stopPropagation()
+    if (!isOnline) {
+      const write = { op: 'remove', weekStart: formatDate(weekStart), day, slot }
+      await offlineDB.queueWrite(write)
+      setMealPlan((prev) => prev.filter((p) => !(p.day_of_week === day && p.meal_slot === slot)))
+      setHasQueuedWrites(true)
+      return
+    }
     await api.delete(`/calendar/${planId}`)
     fetchWeek()
   }
@@ -236,11 +407,9 @@ export default function CalendarPage() {
     setActioning(reqId)
     try {
       await api.post(`/meal-requests/${reqId}/accept`)
-      setPendingRequests(prev => prev.filter(r => r.id !== reqId))
+      setPendingRequests((prev) => prev.filter((r) => r.id !== reqId))
       fetchWeek()
-    } finally {
-      setActioning(null)
-    }
+    } finally { setActioning(null) }
   }
 
   const handleDenyRequest = async (e, reqId) => {
@@ -248,10 +417,8 @@ export default function CalendarPage() {
     setActioning(reqId)
     try {
       await api.post(`/meal-requests/${reqId}/deny`)
-      setPendingRequests(prev => prev.filter(r => r.id !== reqId))
-    } finally {
-      setActioning(null)
-    }
+      setPendingRequests((prev) => prev.filter((r) => r.id !== reqId))
+    } finally { setActioning(null) }
   }
 
   const handleNotifyFamily = async () => {
@@ -264,9 +431,41 @@ export default function CalendarPage() {
       })
       setNotifySent(true)
       setTimeout(() => { setShowNotifyDialog(false); setNotifySent(false) }, 1500)
-    } finally {
-      setNotifyLoading(false)
+    } finally { setNotifyLoading(false) }
+  }
+
+  // Planning flag handlers
+  const handleClaimFlag = async (force = false) => {
+    const holderOfflineHours = flagHolder?.last_seen
+      ? Math.floor((Date.now() - new Date(flagHolder.last_seen).getTime()) / 3600000)
+      : null
+    const needsConfirm = flagHolder && (holderOfflineHours === null || holderOfflineHours >= 24)
+
+    if (needsConfirm && !force) {
+      setShowFlagConfirm(true)
+      return
     }
+
+    setClaimingFlag(true)
+    try {
+      const { data: group } = await api.post(`/group/flag/claim${force ? '?force=true' : ''}`)
+      const me = group.members?.find((m) => m.username === user?.username)
+      if (group.planner_id === me?.user_id) {
+        setFlagHeldByMe(true)
+        setFlagHolder(null)
+        setPlannerClaimedAt(group.planner_claimed_at)
+      }
+      setShowFlagConfirm(false)
+    } finally { setClaimingFlag(false) }
+  }
+
+  const handleReleaseFlag = async () => {
+    try {
+      await api.post('/group/flag/release')
+      setFlagHeldByMe(false)
+      setFlagHolder(null)
+      setPlannerClaimedAt(null)
+    } catch { /* ignore */ }
   }
 
   const weekLabel = () => {
@@ -277,36 +476,85 @@ export default function CalendarPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
+      {/* Offline banner */}
+      {!isOnline && (
+        <div className="mb-4 px-4 py-2.5 bg-gray-800 text-white rounded-xl text-sm flex items-center gap-2">
+          <span>📵</span>
+          <span className="font-medium">You're offline.</span>
+          {canEdit && (flagHeldByMe || !multiHoH) && (
+            <span className="text-gray-300">Changes are saved locally — connect to publish to the family.</span>
+          )}
+          {canEdit && multiHoH && !flagHeldByMe && (
+            <span className="text-gray-300">Claim the planning flag when online to edit.</span>
+          )}
+        </div>
+      )}
+
+      {/* Pending sync banner */}
+      {isOnline && hasQueuedWrites && (
+        <div className="mb-4 px-4 py-2.5 bg-amber-50 border border-amber-300 rounded-xl text-sm flex items-center justify-between">
+          <span className="text-amber-800">
+            {syncLoading ? '⏳ Syncing offline changes…' : '⚠️ You have offline changes waiting to sync.'}
+          </span>
+          {!syncLoading && (
+            <button
+              onClick={syncOfflineQueue}
+              className="ml-4 px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-full transition-colors"
+            >
+              Sync now
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Planning flag banner (multi-HoH only) */}
+      {isHoH && multiHoH && (
+        <PlanningFlagBanner
+          flagHeldByMe={flagHeldByMe}
+          flagHolder={flagHolder}
+          plannerClaimedAt={plannerClaimedAt}
+          isOnline={isOnline}
+          onClaim={() => handleClaimFlag(false)}
+          onRelease={handleReleaseFlag}
+          claiming={claimingFlag}
+          showConfirm={showFlagConfirm}
+          onConfirmClaim={() => handleClaimFlag(true)}
+          onCancelConfirm={() => setShowFlagConfirm(false)}
+        />
+      )}
+
       {/* Week Navigation */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3 flex-wrap">
           <h1 className="text-2xl font-bold text-gray-800">Weekly Meal Calendar</h1>
-          {(isHoH || !inGroup) && (
+          {canEdit && !flagBlocking && (isOnline || !multiHoH) && (
             <button
               onClick={() => setShowAutoFill(true)}
-              className="flex items-center gap-1.5 px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-full transition-colors shadow-sm"
+              disabled={!isOnline}
+              className="flex items-center gap-1.5 px-4 py-1.5 bg-green-600 hover:bg-green-700 disabled:opacity-40 text-white text-sm font-semibold rounded-full transition-colors shadow-sm"
             >
               ✨ Auto-Fill
             </button>
           )}
-          {clearConfirm ? (
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-gray-500">Clear all meals?</span>
-              <button
-                onClick={handleClearWeek}
-                className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-full transition-colors"
-              >
-                Yes, clear
-              </button>
-              <button
-                onClick={() => setClearConfirm(false)}
-                className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-semibold rounded-full transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          ) : (
-            (isHoH || !inGroup) && (
+          {canEdit && !flagBlocking && (
+            clearConfirm ? (
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs text-gray-500">Clear all meals?</span>
+                <button
+                  onClick={handleClearWeek}
+                  disabled={!isOnline}
+                  className="px-3 py-1.5 bg-red-500 hover:bg-red-600 disabled:opacity-40 text-white text-xs font-semibold rounded-full transition-colors"
+                >
+                  Yes, clear
+                </button>
+                <button
+                  onClick={() => setClearConfirm(false)}
+                  className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-semibold rounded-full transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
               <button
                 onClick={() => setClearConfirm(true)}
                 className="flex items-center gap-1.5 px-4 py-1.5 border border-red-200 text-red-400 hover:bg-red-50 hover:border-red-300 text-sm font-semibold rounded-full transition-colors"
@@ -318,7 +566,8 @@ export default function CalendarPage() {
           {isHoH && (
             <button
               onClick={() => { setShowNotifyDialog(true); setNotifyScope('week'); setNotifyDay(0) }}
-              className="flex items-center gap-1.5 px-4 py-1.5 border border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 text-sm font-semibold rounded-full transition-colors"
+              disabled={!isOnline}
+              className="flex items-center gap-1.5 px-4 py-1.5 border border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 disabled:opacity-40 text-sm font-semibold rounded-full transition-colors"
             >
               🔔 Notify Family
             </button>
@@ -328,16 +577,12 @@ export default function CalendarPage() {
           <button
             onClick={() => setWeekStart(addDays(weekStart, -7))}
             className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors text-gray-600"
-          >
-            ‹
-          </button>
+          >‹</button>
           <span className="font-medium text-gray-700 min-w-[200px] text-center text-sm">{weekLabel()}</span>
           <button
             onClick={() => setWeekStart(addDays(weekStart, 7))}
             className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors text-gray-600"
-          >
-            ›
-          </button>
+          >›</button>
           <button
             onClick={() => setWeekStart(getMondayOfWeek(new Date()))}
             className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded-full hover:bg-green-200 transition-colors font-medium"
@@ -383,10 +628,7 @@ export default function CalendarPage() {
                       👥
                     </button>
                     {guestPopoverDay === i && (
-                      <DayGuestsPopover
-                        dateStr={dateStr}
-                        onClose={() => setGuestPopoverDay(null)}
-                      />
+                      <DayGuestsPopover dateStr={dateStr} onClose={() => setGuestPopoverDay(null)} />
                     )}
                   </div>
                 )
@@ -406,7 +648,6 @@ export default function CalendarPage() {
                   const myReq = (!entry && inGroup && !isHoH) ? getMyRequestForSlot(day, slot) : null
                   const pendingReq = (!entry && isHoH) ? getPendingRequestForSlot(day, slot) : null
 
-                  // Pending request cell for HoH
                   if (pendingReq) {
                     return (
                       <div
@@ -419,32 +660,25 @@ export default function CalendarPage() {
                             <p className="text-xs font-bold text-red-700 leading-tight line-clamp-2">
                               {pendingReq.meal.name}
                             </p>
-                            <p className="text-[10px] text-red-400 mt-0.5">
-                              @{pendingReq.requester?.username}
-                            </p>
+                            <p className="text-[10px] text-red-400 mt-0.5">@{pendingReq.requester?.username}</p>
                           </div>
                           <div className="flex items-center gap-1 mt-1">
                             <button
                               onClick={(e) => handleAcceptRequest(e, pendingReq.id)}
                               disabled={actioning === pendingReq.id}
                               className="flex-1 text-[10px] font-bold bg-green-500 hover:bg-green-600 disabled:opacity-50 text-white rounded px-1 py-0.5 transition-colors"
-                            >
-                              ✓
-                            </button>
+                            >✓</button>
                             <button
                               onClick={(e) => handleDenyRequest(e, pendingReq.id)}
                               disabled={actioning === pendingReq.id}
                               className="flex-1 text-[10px] font-bold bg-gray-200 hover:bg-gray-300 disabled:opacity-50 text-gray-600 rounded px-1 py-0.5 transition-colors"
-                            >
-                              ✕
-                            </button>
+                            >✕</button>
                           </div>
                         </div>
                       </div>
                     )
                   }
 
-                  // Own pending request cell for non-HoH
                   if (myReq) {
                     return (
                       <div
@@ -463,21 +697,25 @@ export default function CalendarPage() {
                             <button
                               onClick={(e) => handleCancelRequest(e, myReq.id)}
                               className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 text-xs transition-opacity"
-                            >
-                              ✕
-                            </button>
+                            >✕</button>
                           </div>
                         </div>
                       </div>
                     )
                   }
 
-                  // Normal planned meal cell
+                  const canEditSlot = canEdit && (!multiHoH || flagHeldByMe)
+
                   return (
                     <div
                       key={day}
-                      className={`min-h-[80px] rounded-xl border-2 border-dashed transition-all cursor-pointer relative group ${SLOT_COLORS[slot]}`}
-                      onClick={() => entry ? setViewMealId(entry.meal_id) : setPickerSlot({ day, meal: slot })}
+                      className={`min-h-[80px] rounded-xl border-2 border-dashed transition-all relative group ${
+                        canEditSlot || entry ? 'cursor-pointer' : 'cursor-default opacity-70'
+                      } ${SLOT_COLORS[slot]}`}
+                      onClick={() => {
+                        if (entry) { setViewMealId(entry.meal_id); return }
+                        if (canEditSlot) setPickerSlot({ day, meal: slot })
+                      }}
                     >
                       {entry ? (
                         <div className="p-2 h-full flex flex-col justify-between">
@@ -489,21 +727,20 @@ export default function CalendarPage() {
                               {entry.planned_by && entry.planned_by !== user?.username
                                 ? `@${entry.planned_by}`
                                 : `${entry.meal.prep_time + entry.meal.cook_time}m`}
+                              {entry.id === null && <span className="ml-1 text-amber-500 text-[10px]">●</span>}
                             </span>
-                            {(isHoH || !inGroup) && (
+                            {canEditSlot && (
                               <button
-                                onClick={(e) => handleRemoveMeal(e, entry.id)}
+                                onClick={(e) => handleRemoveMeal(e, entry.id, day, slot)}
                                 className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 text-xs transition-opacity"
-                              >
-                                ✕
-                              </button>
+                              >✕</button>
                             )}
                           </div>
                         </div>
                       ) : (
                         <div className="h-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                           <span className="text-gray-400 text-xl">
-                            {inGroup && !isHoH ? '📨' : '+'}
+                            {inGroup && !isHoH ? '📨' : canEditSlot ? '+' : '🔒'}
                           </span>
                         </div>
                       )}
@@ -534,7 +771,7 @@ export default function CalendarPage() {
         />
       )}
 
-      {/* Notify Family Dialog (13f) */}
+      {/* Notify Family Dialog */}
       {showNotifyDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl shadow-xl p-6 w-80 mx-4">
@@ -546,26 +783,14 @@ export default function CalendarPage() {
             ) : (
               <>
                 <h3 className="text-lg font-bold text-gray-800 mb-1">Notify Family</h3>
-                <p className="text-sm text-gray-500 mb-5">
-                  Let your family know about recent meal plan changes.
-                </p>
+                <p className="text-sm text-gray-500 mb-5">Let your family know about recent meal plan changes.</p>
                 <div className="space-y-3 mb-5">
                   <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="radio" name="scope" value="week"
-                      checked={notifyScope === 'week'}
-                      onChange={() => setNotifyScope('week')}
-                      className="accent-green-600"
-                    />
+                    <input type="radio" name="scope" value="week" checked={notifyScope === 'week'} onChange={() => setNotifyScope('week')} className="accent-green-600" />
                     <span className="text-sm font-medium text-gray-700">This week's entire plan</span>
                   </label>
                   <label className="flex items-center gap-3 cursor-pointer">
-                    <input
-                      type="radio" name="scope" value="day"
-                      checked={notifyScope === 'day'}
-                      onChange={() => setNotifyScope('day')}
-                      className="accent-green-600"
-                    />
+                    <input type="radio" name="scope" value="day" checked={notifyScope === 'day'} onChange={() => setNotifyScope('day')} className="accent-green-600" />
                     <span className="text-sm font-medium text-gray-700">A specific day</span>
                   </label>
                   {notifyScope === 'day' && (
@@ -579,17 +804,12 @@ export default function CalendarPage() {
                   )}
                 </div>
                 <div className="flex gap-2">
-                  <button
-                    onClick={handleNotifyFamily}
-                    disabled={notifyLoading}
-                    className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-medium text-sm py-2 rounded-lg transition-colors"
-                  >
+                  <button onClick={handleNotifyFamily} disabled={notifyLoading}
+                    className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-medium text-sm py-2 rounded-lg transition-colors">
                     {notifyLoading ? 'Sending…' : 'Send Notification'}
                   </button>
-                  <button
-                    onClick={() => setShowNotifyDialog(false)}
-                    className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-600 font-medium text-sm py-2 rounded-lg transition-colors"
-                  >
+                  <button onClick={() => setShowNotifyDialog(false)}
+                    className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-600 font-medium text-sm py-2 rounded-lg transition-colors">
                     Cancel
                   </button>
                 </div>
@@ -597,6 +817,14 @@ export default function CalendarPage() {
             )}
           </div>
         </div>
+      )}
+
+      {showConflictModal && (
+        <OfflineConflictModal
+          conflicts={conflicts}
+          onResolve={handleConflictResolve}
+          onClose={() => setShowConflictModal(false)}
+        />
       )}
     </div>
   )

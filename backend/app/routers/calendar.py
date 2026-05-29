@@ -10,6 +10,33 @@ from ..auth_utils import get_current_user, get_group_user_ids
 router = APIRouter()
 
 
+def _require_flag(db: Session, current_user: models.User) -> None:
+    """For HoH in multi-HoH groups, enforce the planning flag. Auto-claims for single-HoH."""
+    membership = current_user.family_group_membership
+    if not membership or membership.status != 'approved' or not membership.is_head:
+        return
+
+    group = db.query(models.FamilyGroup).filter_by(id=membership.group_id).first()
+    if not group:
+        return
+
+    hoh_count = db.query(models.FamilyGroupMember).filter(
+        models.FamilyGroupMember.group_id == membership.group_id,
+        models.FamilyGroupMember.is_head == True,
+        models.FamilyGroupMember.status == 'approved',
+    ).count()
+
+    if hoh_count <= 1:
+        if group.planner_id != current_user.id:
+            group.planner_id = current_user.id
+            group.planner_claimed_at = datetime.utcnow()
+            db.commit()
+        return
+
+    if group.planner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="PLANNING_FLAG_REQUIRED")
+
+
 @router.get("/week", response_model=List[schemas.MealPlanOut])
 def get_week(
     week_start: date,
@@ -30,6 +57,7 @@ def add_meal_to_calendar(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    _require_flag(db, current_user)
     user_ids = get_group_user_ids(db, current_user)
     existing = (
         db.query(models.MealPlan)
@@ -67,6 +95,7 @@ def autofill_week(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    _require_flag(db, current_user)
     # Load all meals, then filter out any blocked by the user's family allergens (9a)
     all_meals = db.query(models.Meal).all()
     family_members = db.query(models.FamilyMember).filter(
@@ -182,6 +211,7 @@ def clear_week(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    _require_flag(db, current_user)
     user_ids = get_group_user_ids(db, current_user)
     db.query(models.MealPlan).filter(
         models.MealPlan.user_id.in_(user_ids),
@@ -196,6 +226,7 @@ def remove_meal_from_calendar(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    _require_flag(db, current_user)
     user_ids = get_group_user_ids(db, current_user)
     plan = db.query(models.MealPlan).filter(
         models.MealPlan.id == plan_id,

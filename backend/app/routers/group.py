@@ -1,4 +1,5 @@
 import secrets
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from ..database import get_db
@@ -27,14 +28,21 @@ def _member_dict(m):
     }
 
 
-def _group_response(group):
+def _group_response(group, db=None):
     approved = [m for m in group.members if m.status == 'approved']
+    planner_last_seen = None
+    if db and group.planner_id:
+        planner = db.query(models.User).filter_by(id=group.planner_id).first()
+        planner_last_seen = planner.last_seen if planner else None
     return {
         "id": group.id,
         "name": group.name,
         "join_code": group.join_code,
         "owner_id": group.owner_id,
         "members": [_member_dict(m) for m in approved],
+        "planner_id": group.planner_id,
+        "planner_claimed_at": group.planner_claimed_at,
+        "planner_last_seen": planner_last_seen,
     }
 
 
@@ -55,7 +63,7 @@ def get_group(
     membership = current_user.family_group_membership
     if not membership:
         raise HTTPException(status_code=404, detail="Not in a family group")
-    return _group_response(membership.group)
+    return _group_response(membership.group, db)
 
 
 @router.post('/create', response_model=schemas.FamilyGroupOut)
@@ -81,7 +89,7 @@ def create_group(
     db.add(membership)
     db.commit()
     db.refresh(group)
-    return _group_response(group)
+    return _group_response(group, db)
 
 
 @router.post('/join', response_model=schemas.FamilyGroupOut)
@@ -103,7 +111,7 @@ def join_group(
     db.add(membership)
     db.commit()
     db.refresh(group)
-    return _group_response(group)
+    return _group_response(group, db)
 
 
 @router.get('/pending', response_model=list[schemas.FamilyGroupMemberOut])
@@ -133,7 +141,7 @@ def approve_member(
     pending.status = 'approved'
     db.commit()
     db.refresh(membership.group)
-    return _group_response(membership.group)
+    return _group_response(membership.group, db)
 
 
 @router.delete('/deny/{user_id}', status_code=204)
@@ -167,7 +175,7 @@ def promote_member(
     target.is_head = True
     db.commit()
     db.refresh(membership.group)
-    return _group_response(membership.group)
+    return _group_response(membership.group, db)
 
 
 @router.post('/demote', response_model=schemas.FamilyGroupOut)
@@ -190,7 +198,7 @@ def demote_self(
     membership.is_head = False
     db.commit()
     db.refresh(membership.group)
-    return _group_response(membership.group)
+    return _group_response(membership.group, db)
 
 
 @router.delete('/leave', status_code=204)
@@ -245,4 +253,90 @@ def regenerate_code(
     group.join_code = code
     db.commit()
     db.refresh(group)
-    return _group_response(group)
+    return _group_response(group, db)
+
+
+def _hoh_count(db: Session, group_id: int) -> int:
+    return db.query(models.FamilyGroupMember).filter(
+        models.FamilyGroupMember.group_id == group_id,
+        models.FamilyGroupMember.is_head == True,
+        models.FamilyGroupMember.status == 'approved',
+    ).count()
+
+
+@router.post('/flag/claim', response_model=schemas.FamilyGroupOut)
+def claim_planning_flag(
+    force: bool = False,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    membership = _require_hoh(current_user)
+    group = membership.group
+
+    if _hoh_count(db, group.id) <= 1:
+        if group.planner_id != current_user.id:
+            group.planner_id = current_user.id
+            group.planner_claimed_at = datetime.utcnow()
+            db.commit()
+            db.refresh(group)
+        return _group_response(group, db)
+
+    if group.planner_id == current_user.id:
+        return _group_response(group, db)
+
+    if group.planner_id is None:
+        group.planner_id = current_user.id
+        group.planner_claimed_at = datetime.utcnow()
+        db.commit()
+        db.refresh(group)
+        return _group_response(group, db)
+
+    holder = db.query(models.User).filter_by(id=group.planner_id).first()
+    offline_seconds = (
+        (datetime.utcnow() - holder.last_seen).total_seconds()
+        if holder and holder.last_seen else float('inf')
+    )
+
+    if offline_seconds <= 86400:
+        raise HTTPException(status_code=403, detail="FLAG_HELD_BY_ACTIVE_HOLDER")
+
+    if not force:
+        raise HTTPException(status_code=409, detail="FLAG_OFFLINE_CONFIRM_REQUIRED")
+
+    old_holder_id = group.planner_id
+    group.planner_id = current_user.id
+    group.planner_claimed_at = datetime.utcnow()
+    db.flush()
+
+    claimer = current_user.first_name or current_user.username
+    db.add(models.Notification(
+        user_id=old_holder_id,
+        type='flag_reclaimed',
+        title='Planning flag reclaimed',
+        body=(
+            f'{claimer} has claimed the planning flag. '
+            'If you have offline changes, please connect with them to sync.'
+        ),
+        data={'new_holder_id': current_user.id},
+    ))
+    db.commit()
+    db.refresh(group)
+    return _group_response(group, db)
+
+
+@router.post('/flag/release', response_model=schemas.FamilyGroupOut)
+def release_planning_flag(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    membership = _require_hoh(current_user)
+    group = membership.group
+
+    if group.planner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="You don't hold the planning flag")
+
+    group.planner_id = None
+    group.planner_claimed_at = None
+    db.commit()
+    db.refresh(group)
+    return _group_response(group, db)

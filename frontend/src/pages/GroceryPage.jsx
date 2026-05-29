@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import api from '../api/client'
+import { offlineDB } from '../lib/offlineDB'
+import { useOnlineStatus } from '../hooks/useOnlineStatus'
 
 function getMondayOfWeek(date) {
   const d = new Date(date)
@@ -35,22 +37,34 @@ const CATEGORY_COLORS = {
 }
 
 export default function GroceryPage() {
+  const isOnline = useOnlineStatus()
   const [weekStart, setWeekStart] = useState(() => getMondayOfWeek(new Date()))
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(false)
   const [checked, setChecked] = useState({})
   const [household, setHousehold] = useState(null)
+  const [fromCache, setFromCache] = useState(false)
 
   useEffect(() => {
-    api.get('/household/settings').then((r) => setHousehold(r.data))
+    api.get('/household/settings').then((r) => setHousehold(r.data)).catch(() => {})
   }, [])
 
   useEffect(() => {
     setLoading(true)
     setChecked({})
+    setFromCache(false)
+    const key = formatDate(weekStart)
     api
-      .get('/grocery/week', { params: { week_start: formatDate(weekStart) } })
-      .then((r) => setItems(r.data))
+      .get('/grocery/week', { params: { week_start: key } })
+      .then((r) => {
+        setItems(r.data)
+        offlineDB.cacheGrocery(key, r.data)
+      })
+      .catch(async () => {
+        const cached = await offlineDB.getGrocery(key)
+        if (cached) { setItems(cached); setFromCache(true) }
+        else setItems([])
+      })
       .finally(() => setLoading(false))
   }, [weekStart])
 
@@ -73,6 +87,12 @@ export default function GroceryPage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6">
+      {!isOnline && (
+        <div className="mb-4 px-4 py-2 bg-gray-800 text-white rounded-xl text-sm flex items-center gap-2">
+          <span>📵</span>
+          <span>{fromCache ? 'Showing cached grocery list.' : 'You\'re offline. No cached list available for this week.'}</span>
+        </div>
+      )}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Grocery List</h1>

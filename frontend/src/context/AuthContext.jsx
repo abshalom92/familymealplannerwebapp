@@ -31,7 +31,8 @@ export function AuthProvider({ children }) {
     setUser({ username: data.username, isGuest: true })
   }
 
-  const logout = () => {
+  const logout = async () => {
+    try { await api.post('/auth/logout') } catch { /* ignore */ }
     localStorage.removeItem('token')
     localStorage.removeItem('user')
     localStorage.removeItem('guestLoginTime')

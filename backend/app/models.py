@@ -12,6 +12,7 @@ class User(Base):
     password_hash = Column(String, nullable=True)
     is_guest = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    last_seen = Column(DateTime, nullable=True)
     first_name = Column(String, nullable=True)
     last_name = Column(String, nullable=True)
     calorie_goal = Column(Integer, nullable=True)
@@ -47,7 +48,10 @@ class FamilyGroup(Base):
     name = Column(String, nullable=False)
     join_code = Column(String(8), unique=True, index=True, nullable=False)
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    planner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    planner_claimed_at = Column(DateTime, nullable=True)
     members = relationship("FamilyGroupMember", back_populates="group", cascade="all, delete-orphan")
+    planner = relationship("User", foreign_keys=[planner_id])
 
 
 class FamilyGroupMember(Base):
