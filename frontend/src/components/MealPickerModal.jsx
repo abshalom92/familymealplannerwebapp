@@ -13,7 +13,7 @@ function mealContainsAllergen(meal, allergenSet) {
   )
 }
 
-export default function MealPickerModal({ slot, weekStart, onClose, onSelect }) {
+export default function MealPickerModal({ slot, weekStart, onClose, onSelect, requestMode = false }) {
   const [meals, setMeals] = useState([])
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
@@ -46,7 +46,7 @@ export default function MealPickerModal({ slot, weekStart, onClose, onSelect }) 
         <div className="p-5 border-b border-gray-100">
           <div className="flex justify-between items-center mb-3">
             <div>
-              <h2 className="font-bold text-gray-800 text-lg">Pick a Meal</h2>
+              <h2 className="font-bold text-gray-800 text-lg">{requestMode ? 'Request a Meal' : 'Pick a Meal'}</h2>
               <p className="text-sm text-gray-500">
                 {DAY_LABELS[slot.day]} · {SLOT_LABELS[slot.meal]}
               </p>

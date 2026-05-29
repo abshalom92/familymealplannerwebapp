@@ -238,6 +238,55 @@ class FamilyMemberOut(BaseModel):
         from_attributes = True
 
 
+class RequesterOut(BaseModel):
+    id: int
+    username: str
+    first_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class MealRequestCreate(BaseModel):
+    week_start: date
+    day_of_week: int
+    meal_slot: str
+    meal_id: int
+
+
+class MealRequestOut(BaseModel):
+    id: int
+    week_start: date
+    day_of_week: int
+    meal_slot: str
+    meal: MealOut
+    status: str
+    created_at: datetime
+    requester: Optional[RequesterOut] = None
+
+    class Config:
+        from_attributes = True
+
+
+class NotificationOut(BaseModel):
+    id: int
+    type: str
+    title: str
+    body: Optional[str] = None
+    is_read: bool
+    created_at: datetime
+    data: Optional[dict] = None
+
+    class Config:
+        from_attributes = True
+
+
+class FamilyNotifyRequest(BaseModel):
+    week_start: date
+    scope: str  # 'week' | 'day'
+    day_of_week: Optional[int] = None
+
+
 class WeightEntryCreate(BaseModel):
     weight_lbs: float
     logged_at: Optional[datetime] = None

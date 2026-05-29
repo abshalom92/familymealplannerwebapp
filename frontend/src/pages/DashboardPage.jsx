@@ -87,6 +87,12 @@ export default function DashboardPage() {
   const [profile, setProfile]       = useState(null)
   const [pendingCount, setPendingCount] = useState(0)
 
+  // Group role + meal requests
+  const [isHoH, setIsHoH]           = useState(false)
+  const [inGroup, setInGroup]       = useState(false)
+  const [mealReqPending, setMealReqPending] = useState([])   // HoH: pending requests this week
+  const [myMealRequests, setMyMealRequests] = useState([])   // non-HoH: own pending requests
+
   // 10b: daily/weekly toggle
   const [statView, setStatView] = useState('daily')
 
@@ -102,10 +108,19 @@ export default function DashboardPage() {
       api.get('/profile').then(({ data }) => setProfile(data)).catch(() => {})
       api.get('/group').then(({ data: group }) => {
         const me = group.members.find(m => m.username === user?.username)
-        if (me?.is_head) {
+        const hoh = me?.is_head ?? false
+        setIsHoH(hoh)
+        setInGroup(true)
+        const ws = formatDate(getMondayOfWeek(new Date()))
+        if (hoh) {
           api.get('/group/pending').then(({ data: p }) => setPendingCount(p.length)).catch(() => {})
+          api.get('/meal-requests/pending', { params: { week_start: ws } })
+            .then(({ data }) => setMealReqPending(data)).catch(() => {})
+        } else if (me) {
+          api.get('/meal-requests', { params: { week_start: ws } })
+            .then(({ data }) => setMyMealRequests(data.filter(r => r.status === 'pending'))).catch(() => {})
         }
-      }).catch(() => {})
+      }).catch(() => { setInGroup(false); setIsHoH(false) })
     }
   }, [user])
 
@@ -198,6 +213,17 @@ export default function DashboardPage() {
     localStorage.setItem('glance_nutrients', JSON.stringify(updated))
   }
 
+  const handleAcceptReq = async (reqId) => {
+    await api.post(`/meal-requests/${reqId}/accept`)
+    setMealReqPending(prev => prev.filter(r => r.id !== reqId))
+    fetchPlans()
+  }
+
+  const handleDenyReq = async (reqId) => {
+    await api.post(`/meal-requests/${reqId}/deny`)
+    setMealReqPending(prev => prev.filter(r => r.id !== reqId))
+  }
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
 
@@ -207,9 +233,9 @@ export default function DashboardPage() {
         <p className="text-gray-400 mt-1 text-sm">{today}</p>
       </div>
 
-      {/* HoH pending requests banner */}
+      {/* HoH: pending join requests banner */}
       {pendingCount > 0 && (
-        <div className="mb-6 flex items-center justify-between bg-yellow-50 border border-yellow-200 rounded-2xl px-5 py-3">
+        <div className="mb-4 flex items-center justify-between bg-yellow-50 border border-yellow-200 rounded-2xl px-5 py-3">
           <div className="flex items-center gap-2">
             <span className="text-lg">🔔</span>
             <p className="text-sm font-medium text-yellow-800">
@@ -221,6 +247,24 @@ export default function DashboardPage() {
             className="text-xs px-3 py-1.5 bg-yellow-500 hover:bg-yellow-600 text-white font-medium rounded-lg transition-colors"
           >
             Review
+          </button>
+        </div>
+      )}
+
+      {/* HoH: pending meal requests banner (13d) */}
+      {isHoH && mealReqPending.length > 0 && (
+        <div className="mb-6 flex items-center justify-between bg-red-50 border border-red-200 rounded-2xl px-5 py-3">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🍽</span>
+            <p className="text-sm font-medium text-red-800">
+              {mealReqPending.length} pending meal request{mealReqPending.length !== 1 ? 's' : ''} from family members this week
+            </p>
+          </div>
+          <button
+            onClick={() => navigate('/inbox')}
+            className="text-xs px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition-colors"
+          >
+            Review in Inbox
           </button>
         </div>
       )}
@@ -284,6 +328,79 @@ export default function DashboardPage() {
               />
             </div>
           </div>
+
+          {/* 13b — HoH: pending meal request cards with red outline */}
+          {isHoH && mealReqPending.length > 0 && (
+            <div className="mb-6">
+              <h3 className="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                Pending Meal Requests
+                <span className="text-xs bg-red-100 text-red-600 font-medium px-2 py-0.5 rounded-full">
+                  {mealReqPending.length}
+                </span>
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {mealReqPending.map(req => (
+                  <div
+                    key={req.id}
+                    className="border-2 border-red-300 bg-red-50 rounded-xl p-4 shadow-sm"
+                    style={{ boxShadow: '0 0 0 4px rgba(239,68,68,0.1)' }}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-bold text-gray-800 truncate">{req.meal.name}</p>
+                        <p className="text-sm text-gray-500 mt-0.5">
+                          {DAY_SHORT[req.day_of_week]} &middot; {req.meal_slot} &middot; week of {req.week_start}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          From: <span className="font-medium text-gray-700">
+                            {req.requester?.first_name || req.requester?.username}
+                          </span>
+                        </p>
+                      </div>
+                      <div className="flex flex-col gap-1.5 shrink-0">
+                        <button
+                          onClick={() => handleAcceptReq(req.id)}
+                          className="text-xs px-3 py-1 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg transition-colors"
+                        >
+                          Accept
+                        </button>
+                        <button
+                          onClick={() => handleDenyReq(req.id)}
+                          className="text-xs px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 font-medium rounded-lg transition-colors"
+                        >
+                          Deny
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 13a — Non-HoH: own pending requests with "Requested" badge */}
+          {inGroup && !isHoH && myMealRequests.length > 0 && (
+            <div className="mb-6">
+              <h3 className="font-semibold text-gray-700 mb-3">My Pending Requests This Week</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {myMealRequests.map(req => (
+                  <div key={req.id} className="border border-amber-300 bg-amber-50 rounded-xl p-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-gray-800 text-sm truncate">{req.meal.name}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {DAY_SHORT[req.day_of_week]} &middot; {req.meal_slot}
+                        </p>
+                      </div>
+                      <span className="text-xs font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full whitespace-nowrap shrink-0">
+                        Requested
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {mealsPlanned === 0 ? (
             <div className="text-center py-16 text-gray-400 border-2 border-dashed border-gray-200 rounded-2xl">

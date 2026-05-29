@@ -1,9 +1,27 @@
+import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import api from '../api/client'
 
 export default function Navbar() {
   const { user, logout } = useAuth()
   const location = useLocation()
+  const [unreadCount, setUnreadCount] = useState(0)
+
+  useEffect(() => {
+    if (!user || user.isGuest) return
+    const fetchCount = () => {
+      api.get('/inbox/unread-count').then(r => setUnreadCount(r.data.count)).catch(() => {})
+    }
+    fetchCount()
+    const interval = setInterval(fetchCount, 30000)
+    return () => clearInterval(interval)
+  }, [user])
+
+  // Reset badge when user visits inbox
+  useEffect(() => {
+    if (location.pathname === '/inbox') setUnreadCount(0)
+  }, [location.pathname])
 
   const navLink = (to, label) => (
     <Link
@@ -30,6 +48,23 @@ export default function Navbar() {
           {navLink('/calendar', '📅 Calendar')}
           {navLink('/grocery', '🛒 Grocery List')}
           {navLink('/family', '👨‍👩‍👧 Family')}
+          {!user?.isGuest && (
+            <Link
+              to="/inbox"
+              className={`relative px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                location.pathname === '/inbox'
+                  ? 'bg-green-600 text-white'
+                  : 'text-gray-600 hover:bg-green-50 hover:text-green-700'
+              }`}
+            >
+              📬 Inbox
+              {unreadCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </Link>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {!user?.isGuest && (

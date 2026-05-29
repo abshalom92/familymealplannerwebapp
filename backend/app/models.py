@@ -28,6 +28,8 @@ class User(Base):
     day_guests = relationship("DayGuests", back_populates="user", cascade="all, delete-orphan")
     family_group_membership = relationship("FamilyGroupMember", back_populates="user", uselist=False, cascade="all, delete-orphan")
     weight_entries = relationship("WeightEntry", back_populates="user", cascade="all, delete-orphan")
+    sent_requests = relationship("MealRequest", foreign_keys="[MealRequest.requester_id]", cascade="all, delete-orphan")
+    notifications = relationship("Notification", foreign_keys="[Notification.user_id]", cascade="all, delete-orphan")
 
 
 class InviteCode(Base):
@@ -131,6 +133,36 @@ class WeightEntry(Base):
     weight_lbs = Column(Float, nullable=False)
     logged_at = Column(DateTime, default=datetime.utcnow)
     user = relationship("User", back_populates="weight_entries")
+
+
+class MealRequest(Base):
+    __tablename__ = "meal_requests"
+    id = Column(Integer, primary_key=True, index=True)
+    group_id = Column(Integer, ForeignKey("family_groups.id"), nullable=False)
+    requester_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    week_start = Column(Date, nullable=False)
+    day_of_week = Column(Integer, nullable=False)
+    meal_slot = Column(String, nullable=False)
+    meal_id = Column(Integer, ForeignKey("meals.id"), nullable=False)
+    status = Column(String, default='pending')  # pending | accepted | denied
+    created_at = Column(DateTime, default=datetime.utcnow)
+    resolved_at = Column(DateTime, nullable=True)
+    requester = relationship("User", foreign_keys=[requester_id])
+    meal = relationship("Meal")
+    group = relationship("FamilyGroup")
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    type = Column(String, nullable=False)
+    title = Column(String, nullable=False)
+    body = Column(String, nullable=True)
+    is_read = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    data = Column(JSON, nullable=True)
+    user = relationship("User", foreign_keys=[user_id])
 
 
 class MealPlan(Base):

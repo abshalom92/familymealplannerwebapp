@@ -7,6 +7,7 @@ import RecipePage from './pages/RecipePage'
 import FamilyPage from './pages/FamilyPage'
 import DashboardPage from './pages/DashboardPage'
 import ProfilePage from './pages/ProfilePage'
+import InboxPage from './pages/InboxPage'
 import Navbar from './components/Navbar'
 import GuestPromptModal from './components/GuestPromptModal'
 
@@ -72,6 +73,15 @@ function AppRoutes() {
           <ProtectedRoute>
             <Navbar />
             <ProfilePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/inbox"
+        element={
+          <ProtectedRoute>
+            <Navbar />
+            <InboxPage />
           </ProtectedRoute>
         }
       />
