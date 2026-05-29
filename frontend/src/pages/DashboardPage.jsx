@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
@@ -24,22 +24,36 @@ function addDays(date, days) {
   return d
 }
 
-const MACRO_COLORS = ['#22c55e', '#3b82f6', '#f97316']
-const CATEGORY_COLORS = {
-  produce: '#22c55e',
-  dairy: '#3b82f6',
-  meat: '#ef4444',
-  grains: '#f59e0b',
-  pantry: '#8b5cf6',
+const DAY_LABELS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+const DAY_SHORT  = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+
+const ALL_NUTRIENTS = [
+  { key: 'calories',  label: 'Calories',  unit: 'kcal', color: '#f97316', mealKey: 'calories',     goalKey: 'calorie_goal',   decimals: 0 },
+  { key: 'protein',   label: 'Protein',   unit: 'g',    color: '#22c55e', mealKey: 'protein_g',    goalKey: 'protein_goal_g', decimals: 0 },
+  { key: 'carbs',     label: 'Carbs',     unit: 'g',    color: '#3b82f6', mealKey: 'carbs_g',      goalKey: 'carbs_goal_g',   decimals: 0 },
+  { key: 'fats',      label: 'Fats',      unit: 'g',    color: '#a855f7', mealKey: 'fats_g',       goalKey: 'fats_goal_g',    decimals: 0 },
+  { key: 'iron',      label: 'Iron',      unit: 'mg',   color: '#ef4444', mealKey: 'iron_mg',      decimals: 1 },
+  { key: 'calcium',   label: 'Calcium',   unit: 'mg',   color: '#06b6d4', mealKey: 'calcium_mg',   decimals: 0 },
+  { key: 'vitamin_c', label: 'Vitamin C', unit: 'mg',   color: '#eab308', mealKey: 'vitamin_c_mg', decimals: 0 },
+  { key: 'vitamin_d', label: 'Vitamin D', unit: 'IU',   color: '#ec4899', mealKey: 'vitamin_d_iu', decimals: 0 },
+]
+
+const ALL_NUTRIENT_KEYS = ALL_NUTRIENTS.map(n => n.key)
+
+function loadLS(key, fallback) {
+  try { return JSON.parse(localStorage.getItem(key)) ?? fallback }
+  catch { return fallback }
 }
-const CATEGORY_ICONS = { produce: '🥦', dairy: '🥛', meat: '🥩', grains: '🌾', pantry: '🫙' }
+
+const MACRO_COLORS = ['#22c55e', '#3b82f6', '#f97316']
+const CATEGORY_COLORS = { produce: '#22c55e', dairy: '#3b82f6', meat: '#ef4444', grains: '#f59e0b', pantry: '#8b5cf6' }
+const CATEGORY_ICONS  = { produce: '🥦', dairy: '🥛', meat: '🥩', grains: '🌾', pantry: '🫙' }
 
 function StatCard({ label, value, sub, color = 'green' }) {
   const colors = {
-    green: 'bg-green-50 border-green-200 text-green-700',
-    blue: 'bg-blue-50 border-blue-200 text-blue-700',
+    green:  'bg-green-50  border-green-200  text-green-700',
+    blue:   'bg-blue-50   border-blue-200   text-blue-700',
     orange: 'bg-orange-50 border-orange-200 text-orange-700',
-    purple: 'bg-purple-50 border-purple-200 text-purple-700',
   }
   return (
     <div className={`rounded-2xl border p-4 ${colors[color]}`}>
@@ -66,11 +80,22 @@ const CustomPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent })
 export default function DashboardPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [weekStart, setWeekStart] = useState(() => getMondayOfWeek(new Date()))
-  const [plans, setPlans] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [profile, setProfile] = useState(null)
+
+  const [weekStart, setWeekStart]   = useState(() => getMondayOfWeek(new Date()))
+  const [plans, setPlans]           = useState([])
+  const [loading, setLoading]       = useState(true)
+  const [profile, setProfile]       = useState(null)
   const [pendingCount, setPendingCount] = useState(0)
+
+  // 10b: daily/weekly toggle
+  const [statView, setStatView] = useState('daily')
+
+  // 10c: configurable nutrient summary
+  const [summaryNutrients, setSummaryNutrients] = useState(() => loadLS('summary_nutrients', ALL_NUTRIENT_KEYS))
+  const [showSummaryConfig, setShowSummaryConfig] = useState(false)
+
+  // 10d: week-at-a-glance nutrient selectors
+  const [glanceNutrients, setGlanceNutrients] = useState(() => loadLS('glance_nutrients', ['calories', 'protein', 'carbs']))
 
   useEffect(() => {
     if (!user?.isGuest) {
@@ -84,9 +109,6 @@ export default function DashboardPage() {
     }
   }, [user])
 
-  const firstName = profile?.first_name
-    || (user?.username ? user.username.charAt(0).toUpperCase() + user.username.slice(1) : 'there')
-
   const fetchPlans = useCallback(async () => {
     setLoading(true)
     try {
@@ -99,23 +121,47 @@ export default function DashboardPage() {
 
   useEffect(() => { fetchPlans() }, [fetchPlans])
 
+  const firstName = profile?.first_name
+    || (user?.username ? user.username.charAt(0).toUpperCase() + user.username.slice(1) : 'there')
+
   const weekLabel = () => {
     const end = addDays(weekStart, 6)
     const opts = { month: 'short', day: 'numeric' }
     return `${weekStart.toLocaleDateString('en-US', opts)} – ${end.toLocaleDateString('en-US', { ...opts, year: 'numeric' })}`
   }
 
-  // ── Nutrition totals ──────────────────────────────────────────────
-  const totals = plans.reduce((acc, p) => {
-    const m = p.meal
-    acc.calories  += m.calories  || 0
-    acc.protein   += m.protein_g || 0
-    acc.carbs     += m.carbs_g   || 0
-    acc.fats      += m.fats_g    || 0
-    acc.iron      += m.iron_mg   || 0
-    acc.calcium   += m.calcium_mg || 0
-    return acc
-  }, { calories: 0, protein: 0, carbs: 0, fats: 0, iron: 0, calcium: 0 })
+  // Today's day-of-week index (0=Mon, 6=Sun)
+  const todayDOW = useMemo(() => {
+    const d = new Date().getDay()
+    return d === 0 ? 6 : d - 1
+  }, [])
+
+  // Per-day breakdown for the viewed week
+  const byDay = useMemo(() =>
+    Array.from({ length: 7 }, (_, day) => {
+      const dayPlans = plans.filter(p => p.day_of_week === day)
+      const result = { day, mealsCount: dayPlans.length }
+      for (const n of ALL_NUTRIENTS) {
+        result[n.key] = dayPlans.reduce((s, p) => s + (p.meal[n.mealKey] || 0), 0)
+      }
+      return result
+    }), [plans])
+
+  // Totals for whichever view the stat cards are showing
+  const statSource = statView === 'daily' ? byDay[todayDOW] : {
+    mealsCount: plans.length,
+    ...ALL_NUTRIENTS.reduce((acc, n) => {
+      acc[n.key] = plans.reduce((s, p) => s + (p.meal[n.mealKey] || 0), 0)
+      return acc
+    }, {}),
+  }
+
+  // Weekly totals (always used for charts / nutrient summary)
+  const totals = useMemo(() =>
+    ALL_NUTRIENTS.reduce((acc, n) => {
+      acc[n.key] = plans.reduce((s, p) => s + (p.meal[n.mealKey] || 0), 0)
+      return acc
+    }, {}), [plans])
 
   const macroData = [
     { name: 'Protein', value: Math.round(totals.protein * 4) },
@@ -123,7 +169,6 @@ export default function DashboardPage() {
     { name: 'Fats',    value: Math.round(totals.fats    * 9) },
   ].filter(d => d.value > 0)
 
-  // ── Category breakdown ────────────────────────────────────────────
   const catCounts = {}
   for (const p of plans) {
     for (const ing of p.meal.ingredients || []) {
@@ -136,18 +181,29 @@ export default function DashboardPage() {
     .sort((a, b) => b.count - a.count)
 
   const mealsPlanned = plans.length
-  const totalSlots = 21 // 7 days × 3 slots
-
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+
+  const toggleSummaryNutrient = (key) => {
+    const updated = summaryNutrients.includes(key)
+      ? summaryNutrients.filter(k => k !== key)
+      : [...summaryNutrients, key]
+    setSummaryNutrients(updated)
+    localStorage.setItem('summary_nutrients', JSON.stringify(updated))
+  }
+
+  const updateGlanceNutrient = (idx, key) => {
+    const updated = [...glanceNutrients]
+    updated[idx] = key
+    setGlanceNutrients(updated)
+    localStorage.setItem('glance_nutrients', JSON.stringify(updated))
+  }
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
 
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">
-          Welcome, {firstName}! 👋
-        </h1>
+        <h1 className="text-3xl font-bold text-gray-800">Welcome, {firstName}! 👋</h1>
         <p className="text-gray-400 mt-1 text-sm">{today}</p>
       </div>
 
@@ -173,19 +229,10 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-lg font-semibold text-gray-700">Weekly Overview</h2>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setWeekStart(addDays(weekStart, -7))}
-            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500"
-          >‹</button>
+          <button onClick={() => setWeekStart(addDays(weekStart, -7))} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500">‹</button>
           <span className="text-sm text-gray-600 min-w-[190px] text-center">{weekLabel()}</span>
-          <button
-            onClick={() => setWeekStart(addDays(weekStart, 7))}
-            className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500"
-          >›</button>
-          <button
-            onClick={() => setWeekStart(getMondayOfWeek(new Date()))}
-            className="text-xs px-3 py-1 bg-green-100 text-green-700 rounded-full hover:bg-green-200 transition-colors"
-          >This week</button>
+          <button onClick={() => setWeekStart(addDays(weekStart, 7))} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-500">›</button>
+          <button onClick={() => setWeekStart(getMondayOfWeek(new Date()))} className="text-xs px-3 py-1 bg-green-100 text-green-700 rounded-full hover:bg-green-200 transition-colors">This week</button>
         </div>
       </div>
 
@@ -195,32 +242,47 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
-          {/* Stat cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-            <StatCard
-              label="Meals Planned"
-              value={`${mealsPlanned} / ${totalSlots}`}
-              sub={`${totalSlots - mealsPlanned} slots open`}
-              color="green"
-            />
-            <StatCard
-              label="Total Calories"
-              value={Math.round(totals.calories).toLocaleString()}
-              sub="for the week"
-              color="orange"
-            />
-            <StatCard
-              label="Total Protein"
-              value={`${Math.round(totals.protein)}g`}
-              sub={`Iron: ${totals.iron.toFixed(1)} mg`}
-              color="blue"
-            />
-            <StatCard
-              label="Total Calcium"
-              value={`${Math.round(totals.calcium)} mg`}
-              sub={`Vitamin C: ${Math.round(totals.calcium)} mg`}
-              color="purple"
-            />
+          {/* 10a + 10b — Stat cards with daily/weekly toggle */}
+          <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-semibold text-gray-600">
+                {statView === 'daily' ? `${DAY_LABELS[todayDOW]}'s Plan` : 'Full Week'}
+              </p>
+              <div className="flex rounded-lg overflow-hidden border border-gray-200 text-xs">
+                <button
+                  onClick={() => setStatView('daily')}
+                  className={`px-3 py-1.5 font-medium transition-colors ${statView === 'daily' ? 'bg-green-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                >
+                  Daily
+                </button>
+                <button
+                  onClick={() => setStatView('weekly')}
+                  className={`px-3 py-1.5 font-medium transition-colors ${statView === 'weekly' ? 'bg-green-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}
+                >
+                  Weekly
+                </button>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <StatCard
+                label="Meals Planned"
+                value={statView === 'daily' ? `${statSource.mealsCount} / 3` : `${statSource.mealsCount} / 21`}
+                sub={statView === 'daily' ? `${3 - statSource.mealsCount} slots open` : `${21 - statSource.mealsCount} slots open`}
+                color="green"
+              />
+              <StatCard
+                label="Calories"
+                value={Math.round(statSource.calories).toLocaleString()}
+                sub={statView === 'daily' ? 'kcal today' : 'kcal this week'}
+                color="orange"
+              />
+              <StatCard
+                label="Protein"
+                value={`${Math.round(statSource.protein)}g`}
+                sub={statView === 'daily' ? 'today' : 'this week'}
+                color="blue"
+              />
+            </div>
           </div>
 
           {mealsPlanned === 0 ? (
@@ -228,108 +290,178 @@ export default function DashboardPage() {
               <p className="text-4xl mb-3">📅</p>
               <p className="font-medium text-gray-500">No meals planned this week</p>
               <p className="text-sm mt-1">Head to the Calendar to start planning.</p>
-              <button
-                onClick={() => navigate('/calendar')}
-                className="mt-4 px-5 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-xl transition-colors"
-              >
+              <button onClick={() => navigate('/calendar')} className="mt-4 px-5 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-xl transition-colors">
                 Go to Calendar
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-6">
 
-              {/* Macro Pie Chart */}
+              {/* 10d — Week at a Glance */}
               <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
-                <h3 className="font-semibold text-gray-700 mb-1">Weekly Macro Breakdown</h3>
-                <p className="text-xs text-gray-400 mb-4">Calories from protein, carbs & fats</p>
-                {macroData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={260}>
-                    <PieChart>
-                      <Pie
-                        data={macroData}
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={100}
-                        dataKey="value"
-                        labelLine={false}
-                        label={CustomPieLabel}
+                <div className="flex items-start justify-between mb-4 gap-3 flex-wrap">
+                  <div>
+                    <h3 className="font-semibold text-gray-700">Week at a Glance</h3>
+                    <p className="text-xs text-gray-400">Daily nutrient totals — pick any 3 to display</p>
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    {[0, 1, 2].map(idx => (
+                      <select
+                        key={idx}
+                        value={glanceNutrients[idx]}
+                        onChange={e => updateGlanceNutrient(idx, e.target.value)}
+                        className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-green-400 bg-white"
                       >
-                        {macroData.map((_, i) => (
-                          <Cell key={i} fill={MACRO_COLORS[i % MACRO_COLORS.length]} />
+                        {ALL_NUTRIENTS.map(n => (
+                          <option key={n.key} value={n.key} disabled={glanceNutrients.includes(n.key) && n.key !== glanceNutrients[idx]}>
+                            {n.label}
+                          </option>
                         ))}
-                      </Pie>
-                      <Tooltip formatter={(v) => [`${v} cal`, '']} />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <p className="text-center text-gray-400 py-10 text-sm">No nutrition data available</p>
-                )}
+                      </select>
+                    ))}
+                  </div>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[500px] text-center">
+                    <thead>
+                      <tr>
+                        <th className="text-left text-xs text-gray-400 font-medium pb-2 pr-4 w-28">Nutrient</th>
+                        {DAY_SHORT.map((d, i) => (
+                          <th key={d} className={`text-xs font-semibold pb-2 ${i === todayDOW ? 'text-green-600' : 'text-gray-500'}`}>
+                            {d}
+                            {i === todayDOW && <span className="block w-1.5 h-1.5 bg-green-500 rounded-full mx-auto mt-0.5" />}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {glanceNutrients.map(key => {
+                        const n = ALL_NUTRIENTS.find(x => x.key === key)
+                        return (
+                          <tr key={key} className="border-t border-gray-50">
+                            <td className="text-left py-2 pr-4">
+                              <span className="text-xs font-medium text-gray-600">{n.label}</span>
+                              <span className="text-[10px] text-gray-400 ml-1">({n.unit})</span>
+                            </td>
+                            {byDay.map((day, i) => {
+                              const val = day[key]
+                              const fmt = n.decimals > 0 ? val.toFixed(n.decimals) : Math.round(val)
+                              return (
+                                <td key={i} className={`py-2 text-xs ${i === todayDOW ? 'text-green-700 font-bold' : val > 0 ? 'text-gray-700 font-medium' : 'text-gray-300'}`}>
+                                  {val > 0 ? Number(fmt).toLocaleString() : '—'}
+                                </td>
+                              )
+                            })}
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
-              {/* Food Category Bar Chart */}
-              <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
-                <h3 className="font-semibold text-gray-700 mb-1">Food Group Variety</h3>
-                <p className="text-xs text-gray-400 mb-4">Ingredient count by category this week</p>
-                {categoryData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={260}>
-                    <BarChart data={categoryData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                      <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-                      <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
-                      <Tooltip
-                        formatter={(v, _, props) => [`${v} ingredients`, props.payload.category]}
-                        cursor={{ fill: '#f9fafb' }}
-                      />
-                      <Bar dataKey="count" radius={[6, 6, 0, 0]}>
-                        {categoryData.map((entry, i) => (
-                          <Cell key={i} fill={CATEGORY_COLORS[entry.category] || '#94a3b8'} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <p className="text-center text-gray-400 py-10 text-sm">No ingredient data available</p>
-                )}
-              </div>
+              {/* Charts row */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-              {/* Micro-nutrient summary */}
-              <div className="md:col-span-2 bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-semibold text-gray-700">Weekly Nutrient Summary</h3>
-                  {(profile?.calorie_goal || profile?.protein_goal_g) && (
-                    <span className="text-xs text-gray-400">vs. your daily goals × 7</span>
+                {/* Macro Pie Chart */}
+                <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+                  <h3 className="font-semibold text-gray-700 mb-1">Weekly Macro Breakdown</h3>
+                  <p className="text-xs text-gray-400 mb-4">Calories from protein, carbs & fats</p>
+                  {macroData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={260}>
+                      <PieChart>
+                        <Pie data={macroData} cx="50%" cy="50%" outerRadius={100} dataKey="value" labelLine={false} label={CustomPieLabel}>
+                          {macroData.map((_, i) => <Cell key={i} fill={MACRO_COLORS[i % MACRO_COLORS.length]} />)}
+                        </Pie>
+                        <Tooltip formatter={(v) => [`${v} cal`, '']} />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <p className="text-center text-gray-400 py-10 text-sm">No nutrition data available</p>
                   )}
                 </div>
+
+                {/* Food Category Bar Chart */}
+                <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+                  <h3 className="font-semibold text-gray-700 mb-1">Food Group Variety</h3>
+                  <p className="text-xs text-gray-400 mb-4">Ingredient count by category this week</p>
+                  {categoryData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={260}>
+                      <BarChart data={categoryData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                        <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+                        <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
+                        <Tooltip formatter={(v, _, props) => [`${v} ingredients`, props.payload.category]} cursor={{ fill: '#f9fafb' }} />
+                        <Bar dataKey="count" radius={[6, 6, 0, 0]}>
+                          {categoryData.map((entry, i) => <Cell key={i} fill={CATEGORY_COLORS[entry.category] || '#94a3b8'} />)}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <p className="text-center text-gray-400 py-10 text-sm">No ingredient data available</p>
+                  )}
+                </div>
+
+              </div>
+
+              {/* 10c — Weekly Nutrient Summary with configurable nutrients */}
+              <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="font-semibold text-gray-700">Weekly Nutrient Summary</h3>
+                    {(profile?.calorie_goal || profile?.protein_goal_g) && (
+                      <p className="text-xs text-gray-400">vs. your daily goals × 7</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => setShowSummaryConfig(c => !c)}
+                    className="text-xs px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-500 rounded-lg transition-colors"
+                  >
+                    {showSummaryConfig ? 'Done' : 'Configure'}
+                  </button>
+                </div>
+
+                {showSummaryConfig && (
+                  <div className="mb-5 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                    <p className="text-xs text-gray-500 mb-2 font-medium">Choose which nutrients to display:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {ALL_NUTRIENTS.map(n => (
+                        <button
+                          key={n.key}
+                          onClick={() => toggleSummaryNutrient(n.key)}
+                          className={`text-xs px-3 py-1 rounded-full border transition-colors ${
+                            summaryNutrients.includes(n.key)
+                              ? 'border-green-500 bg-green-50 text-green-700'
+                              : 'border-gray-200 bg-white text-gray-400'
+                          }`}
+                        >
+                          {n.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  {[
-                    { label: 'Calories', value: Math.round(totals.calories), unit: 'kcal', color: '#f97316', goal: profile?.calorie_goal },
-                    { label: 'Protein',  value: Math.round(totals.protein),  unit: 'g',    color: '#22c55e', goal: profile?.protein_goal_g },
-                    { label: 'Carbs',    value: Math.round(totals.carbs),    unit: 'g',    color: '#3b82f6', goal: profile?.carbs_goal_g },
-                    { label: 'Fats',     value: Math.round(totals.fats),     unit: 'g',    color: '#a855f7', goal: profile?.fats_goal_g },
-                    { label: 'Iron',     value: totals.iron.toFixed(1),      unit: 'mg',   color: '#ef4444' },
-                    { label: 'Calcium',  value: Math.round(totals.calcium),  unit: 'mg',   color: '#06b6d4' },
-                    { label: 'Vitamin C',value: Math.round(plans.reduce((a, p) => a + (p.meal.vitamin_c_mg || 0), 0)), unit: 'mg', color: '#eab308' },
-                    { label: 'Vitamin D',value: Math.round(plans.reduce((a, p) => a + (p.meal.vitamin_d_iu || 0), 0)), unit: 'IU', color: '#ec4899' },
-                  ].map(({ label, value, unit, color, goal }) => {
-                    const weeklyGoal = goal ? goal * 7 : null
+                  {ALL_NUTRIENTS.filter(n => summaryNutrients.includes(n.key)).map(({ key, label, unit, color, mealKey, goalKey, decimals }) => {
+                    const value = totals[key] ?? 0
+                    const formatted = decimals > 0 ? Number(value.toFixed(decimals)) : Math.round(value)
+                    const weeklyGoal = goalKey && profile?.[goalKey] ? profile[goalKey] * 7 : null
                     const pct = weeklyGoal ? Math.min(100, Math.round((value / weeklyGoal) * 100)) : null
                     return (
-                      <div key={label} className="flex items-start gap-3">
+                      <div key={key} className="flex items-start gap-3">
                         <div className="w-2 h-10 rounded-full mt-1 flex-shrink-0" style={{ backgroundColor: color }} />
                         <div className="min-w-0 flex-1">
                           <p className="text-xs text-gray-400">{label}</p>
                           <p className="text-lg font-bold text-gray-700 leading-tight">
-                            {typeof value === 'number' ? value.toLocaleString() : value}{' '}
+                            {formatted.toLocaleString()}{' '}
                             <span className="text-xs font-normal text-gray-400">{unit}</span>
                           </p>
                           {pct !== null && (
                             <div className="mt-1">
                               <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                <div
-                                  className="h-full rounded-full transition-all"
-                                  style={{ width: `${pct}%`, backgroundColor: color }}
-                                />
+                                <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
                               </div>
                               <p className="text-[10px] text-gray-400 mt-0.5">{pct}% of weekly goal</p>
                             </div>
@@ -338,6 +470,9 @@ export default function DashboardPage() {
                       </div>
                     )
                   })}
+                  {summaryNutrients.length === 0 && (
+                    <p className="col-span-4 text-sm text-gray-400 text-center py-4">No nutrients selected — click Configure to add some.</p>
+                  )}
                 </div>
               </div>
 
