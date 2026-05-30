@@ -1,4 +1,5 @@
-const CACHE = 'mealplanner-v1'
+const CACHE = 'mealplanner-v2'
+const PRECACHE = ['/index.html', '/offline.html']
 
 // API GET routes to cache (network-first, cache fallback)
 const CACHEABLE = [
@@ -10,7 +11,13 @@ const CACHEABLE = [
   '/api/group',
 ]
 
-self.addEventListener('install', () => self.skipWaiting())
+self.addEventListener('install', (e) => {
+  e.waitUntil(
+    caches.open(CACHE).then((c) => c.addAll(PRECACHE))
+  )
+  self.skipWaiting()
+})
+
 self.addEventListener('activate', (e) => e.waitUntil(clients.claim()))
 
 self.addEventListener('fetch', (e) => {
@@ -33,11 +40,11 @@ self.addEventListener('fetch', (e) => {
     return
   }
 
-  // Navigation: serve index.html offline
+  // Navigation: serve index.html offline, fall back to offline.html
   if (request.mode === 'navigate') {
     e.respondWith(
       fetch(request).catch(() =>
-        caches.match('/index.html').then((cached) => cached || fetch(request))
+        caches.match('/index.html').then((cached) => cached || caches.match('/offline.html'))
       )
     )
   }

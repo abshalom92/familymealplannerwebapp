@@ -10,6 +10,7 @@ import ProfilePage from './pages/ProfilePage'
 import InboxPage from './pages/InboxPage'
 import Navbar from './components/Navbar'
 import GuestPromptModal from './components/GuestPromptModal'
+import InstallPromptBanner from './components/InstallPromptBanner'
 
 function ProtectedRoute({ children }) {
   const { user } = useAuth()
@@ -87,6 +88,7 @@ function AppRoutes() {
       />
     </Routes>
     <GuestPromptModal />
+    <InstallPromptBanner />
     </>
   )
 }
