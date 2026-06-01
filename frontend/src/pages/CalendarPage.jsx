@@ -251,10 +251,18 @@ export default function CalendarPage() {
         serverPlans[ws] = data
       }
 
+      // Apply clearWeek ops first so subsequent adds land on a clean slate
+      for (const write of queue.filter((w) => w.op === 'clearWeek')) {
+        try {
+          await api.delete('/calendar/week', { params: { week_start: write.weekStart } })
+          if (serverPlans[write.weekStart]) serverPlans[write.weekStart] = []
+        } catch { /* skip */ }
+      }
+
       const foundConflicts = []
       const toApply = []
 
-      for (const write of queue) {
+      for (const write of queue.filter((w) => w.op !== 'clearWeek')) {
         const plan = serverPlans[write.weekStart] || []
         const serverEntry = plan.find((p) => p.day_of_week === write.day && p.meal_slot === write.slot)
 
@@ -379,6 +387,13 @@ export default function CalendarPage() {
   }
 
   const handleClearWeek = async () => {
+    if (!isOnline) {
+      await offlineDB.queueWrite({ op: 'clearWeek', weekStart: formatDate(weekStart) })
+      setMealPlan([])
+      setHasQueuedWrites(true)
+      setClearConfirm(false)
+      return
+    }
     await api.delete('/calendar/week', { params: { week_start: formatDate(weekStart) } })
     setClearConfirm(false)
     fetchWeek()
@@ -387,6 +402,66 @@ export default function CalendarPage() {
   const handleAutoFill = async (slots, overwrite) => {
     setAutoFillLoading(true)
     try {
+      if (!isOnline) {
+        let allMeals = []
+        try {
+          const { data } = await api.get('/meals/')
+          allMeals = data
+        } catch {
+          setShowAutoFill(false)
+          return
+        }
+
+        const ws = formatDate(weekStart)
+        const newEntries = []
+
+        for (let day = 0; day < 7; day++) {
+          for (const slot of slots) {
+            const existing = mealPlan.find(
+              (p) => p.day_of_week === day && p.meal_slot === slot
+            )
+            if (existing && !overwrite) continue
+
+            const eligible = allMeals.filter(
+              (m) => m.meal_type === slot || m.meal_type === 'any'
+            )
+            if (eligible.length === 0) continue
+
+            const meal = eligible[Math.floor(Math.random() * eligible.length)]
+            newEntries.push({ day, slot, meal })
+            await offlineDB.queueWrite({
+              op: 'add',
+              weekStart: ws,
+              day,
+              slot,
+              mealId: meal.id,
+              mealName: meal.name,
+              mealData: meal,
+            })
+          }
+        }
+
+        setMealPlan((prev) => {
+          const base = overwrite
+            ? prev.filter((p) => !slots.includes(p.meal_slot))
+            : prev
+          const added = newEntries.map(({ day, slot, meal }) => ({
+            id: null,
+            week_start: ws,
+            day_of_week: day,
+            meal_slot: slot,
+            meal_id: meal.id,
+            meal,
+            planned_by: user?.username,
+          }))
+          return [...base, ...added]
+        })
+
+        setHasQueuedWrites(true)
+        setShowAutoFill(false)
+        return
+      }
+
       await api.post('/calendar/autofill', { week_start: formatDate(weekStart), slots, overwrite })
       setShowAutoFill(false)
       fetchWeek()
@@ -542,9 +617,7 @@ export default function CalendarPage() {
           {canEdit && !flagBlocking && (
             <button
               onClick={() => setShowAutoFill(true)}
-              disabled={!isOnline}
-              title={!isOnline ? 'Auto-Fill requires an internet connection' : undefined}
-              className="flex items-center gap-1.5 px-4 py-1.5 bg-green-600 hover:bg-green-700 disabled:opacity-40 text-white text-sm font-semibold rounded-full transition-colors shadow-sm"
+              className="flex items-center gap-1.5 px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-full transition-colors shadow-sm"
             >
               ✨ Auto-Fill
             </button>
@@ -555,8 +628,7 @@ export default function CalendarPage() {
                 <span className="text-xs text-gray-500">Clear all meals?</span>
                 <button
                   onClick={handleClearWeek}
-                  disabled={!isOnline}
-                  className="px-3 py-1.5 bg-red-500 hover:bg-red-600 disabled:opacity-40 text-white text-xs font-semibold rounded-full transition-colors"
+                  className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-full transition-colors"
                 >
                   Yes, clear
                 </button>
