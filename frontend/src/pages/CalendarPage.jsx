@@ -106,6 +106,7 @@ export default function CalendarPage() {
   const [weekStart, setWeekStart] = useState(() => getMondayOfWeek(new Date()))
   const [mealPlan, setMealPlan] = useState([])
   const [viewMealId, setViewMealId] = useState(null)
+  const [viewMealData, setViewMealData] = useState(null)
   const [pickerSlot, setPickerSlot] = useState(null)
   const [loading, setLoading] = useState(false)
   const [showAutoFill, setShowAutoFill] = useState(false)
@@ -769,7 +770,7 @@ export default function CalendarPage() {
                       <div
                         key={day}
                         className="min-h-[80px] rounded-xl border-2 border-amber-300 bg-amber-50 relative group cursor-pointer"
-                        onClick={() => setViewMealId(myReq.meal.id)}
+                        onClick={() => { setViewMealId(myReq.meal.id); setViewMealData(myReq.meal) }}
                       >
                         <div className="p-2 h-full flex flex-col justify-between">
                           <p className="text-xs font-semibold text-amber-800 leading-tight line-clamp-2">
@@ -798,7 +799,7 @@ export default function CalendarPage() {
                         canEditSlot || entry ? 'cursor-pointer' : 'cursor-default opacity-70'
                       } ${SLOT_COLORS[slot]}`}
                       onClick={() => {
-                        if (entry) { setViewMealId(entry.meal_id); return }
+                        if (entry) { setViewMealId(entry.meal_id); setViewMealData(entry.meal); return }
                         if (canEditSlot) setPickerSlot({ day, meal: slot })
                       }}
                     >
@@ -846,7 +847,7 @@ export default function CalendarPage() {
         </div>
       )}
 
-      <RecipeModal mealId={viewMealId} onClose={() => setViewMealId(null)} />
+      <RecipeModal mealId={viewMealId} initialMeal={viewMealData} onClose={() => { setViewMealId(null); setViewMealData(null) }} />
       {pickerSlot && (
         <MealPickerModal
           slot={pickerSlot}

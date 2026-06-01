@@ -10,13 +10,18 @@ const CATEGORY_COLORS = {
   pantry: 'bg-gray-100 text-gray-700',
 }
 
-export default function RecipeModal({ mealId, onClose }) {
-  const [meal, setMeal] = useState(null)
+export default function RecipeModal({ mealId, initialMeal = null, onClose }) {
+  const [meal, setMeal] = useState(initialMeal)
+  const [error, setError] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
     if (!mealId) return
-    api.get(`/meals/${mealId}`).then((r) => setMeal(r.data))
+    if (initialMeal) { setMeal(initialMeal); return }
+    setError(false)
+    api.get(`/meals/${mealId}`)
+      .then((r) => setMeal(r.data))
+      .catch(() => setError(true))
   }, [mealId])
 
   if (!mealId) return null
@@ -27,8 +32,17 @@ export default function RecipeModal({ mealId, onClose }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         {!meal ? (
-          <div className="flex items-center justify-center h-48">
-            <div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin" />
+          <div className="flex flex-col items-center justify-center h-48 gap-4 p-6">
+            {error ? (
+              <>
+                <p className="text-gray-500 text-sm text-center">Meal details unavailable offline.</p>
+                <button onClick={onClose} className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors">
+                  Close
+                </button>
+              </>
+            ) : (
+              <div className="w-8 h-8 border-4 border-green-500 border-t-transparent rounded-full animate-spin" />
+            )}
           </div>
         ) : (
           <>

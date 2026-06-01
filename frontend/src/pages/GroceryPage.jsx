@@ -97,7 +97,7 @@ export default function GroceryPage() {
       {!isOnline && (
         <div className="mb-4 px-4 py-2 bg-gray-800 text-white rounded-xl text-sm flex items-center gap-2">
           <span>📵</span>
-          <span>{fromCache ? 'Showing cached grocery list.' : 'You\'re offline. No cached list available for this week.'}</span>
+          <span>{fromCache ? 'Showing cached grocery list. Meal plan changes made offline won\'t appear until you reconnect.' : 'You\'re offline. No cached list available for this week.'}</span>
         </div>
       )}
       <div className="flex items-center justify-between mb-6">
