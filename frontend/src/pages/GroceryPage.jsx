@@ -51,9 +51,10 @@ export default function GroceryPage() {
 
   useEffect(() => {
     setLoading(true)
-    setChecked({})
     setFromCache(false)
     const key = formatDate(weekStart)
+    const saved = localStorage.getItem(`grocery-checked-${key}`)
+    setChecked(saved ? JSON.parse(saved) : {})
     api
       .get('/grocery/week', { params: { week_start: key } })
       .then((r) => {
@@ -74,7 +75,13 @@ export default function GroceryPage() {
     return acc
   }, {})
 
-  const toggleCheck = (key) => setChecked((prev) => ({ ...prev, [key]: !prev[key] }))
+  const toggleCheck = (itemKey) => {
+    setChecked((prev) => {
+      const next = { ...prev, [itemKey]: !prev[itemKey] }
+      localStorage.setItem(`grocery-checked-${formatDate(weekStart)}`, JSON.stringify(next))
+      return next
+    })
+  }
 
   const weekLabel = () => {
     const end = addDays(weekStart, 6)

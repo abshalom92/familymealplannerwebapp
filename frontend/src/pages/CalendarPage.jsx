@@ -183,13 +183,18 @@ export default function CalendarPage() {
 
   const fetchWeek = useCallback(async () => {
     setLoading(true)
+    const ws = formatDate(weekStart)
     try {
-      const { data } = await api.get('/calendar/week', { params: { week_start: formatDate(weekStart) } })
+      const { data } = await api.get('/calendar/week', { params: { week_start: ws } })
       setMealPlan(data)
-      offlineDB.cacheWeekPlan(formatDate(weekStart), data)
+      offlineDB.cacheWeekPlan(ws, data)
+      // Keep grocery list in sync so it's always available offline
+      api.get('/grocery/week', { params: { week_start: ws } })
+        .then((r) => offlineDB.cacheGrocery(ws, r.data))
+        .catch(() => {})
     } catch {
       if (!navigator.onLine) {
-        const cached = await offlineDB.getWeekPlan(formatDate(weekStart))
+        const cached = await offlineDB.getWeekPlan(ws)
         if (cached) setMealPlan(cached)
       }
     } finally {
@@ -225,6 +230,13 @@ export default function CalendarPage() {
       syncOfflineQueue()
     }
   }, [isOnline]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Prime SW cache for offline meal picker — fetch meals + family whenever online
+  useEffect(() => {
+    if (!isOnline) return
+    api.get('/meals/').catch(() => {})
+    api.get('/family/').catch(() => {})
+  }, [isOnline])
 
   const syncOfflineQueue = async () => {
     const queue = await offlineDB.getWriteQueue()

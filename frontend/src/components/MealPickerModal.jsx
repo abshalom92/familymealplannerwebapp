@@ -18,10 +18,11 @@ export default function MealPickerModal({ slot, weekStart, onClose, onSelect, re
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
   const [familyMembers, setFamilyMembers] = useState([])
+  const [mealsError, setMealsError] = useState(false)
 
   useEffect(() => {
-    api.get('/family/').then((r) => setFamilyMembers(r.data))
-    api.get('/meals/').then((r) => setMeals(r.data))
+    api.get('/family/').then((r) => setFamilyMembers(r.data)).catch(() => {})
+    api.get('/meals/').then((r) => setMeals(r.data)).catch(() => setMealsError(true))
   }, [])
 
   // Build allergen set from ALL family members (9b)
@@ -83,7 +84,13 @@ export default function MealPickerModal({ slot, weekStart, onClose, onSelect, re
         </div>
 
         <div className="overflow-y-auto flex-1 p-3">
-          {filtered.length === 0 ? (
+          {mealsError ? (
+            <div className="text-center py-10 px-4">
+              <p className="text-3xl mb-3">📵</p>
+              <p className="font-semibold text-gray-600 mb-1">Meal list unavailable offline</p>
+              <p className="text-xs text-gray-400">Open the meal picker while connected at least once to cache the meal list for offline use.</p>
+            </div>
+          ) : filtered.length === 0 ? (
             <p className="text-center text-gray-400 py-8">No meals found</p>
           ) : (
             <div className="space-y-2">
