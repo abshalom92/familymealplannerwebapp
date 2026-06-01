@@ -3,6 +3,7 @@ import api from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { useOnlineStatus } from '../hooks/useOnlineStatus'
 import { offlineDB } from '../lib/offlineDB'
+import { computeGroceryList } from '../lib/groceryUtils'
 import RecipeModal from '../components/RecipeModal'
 import MealPickerModal from '../components/MealPickerModal'
 import AutoFillModal from '../components/AutoFillModal'
@@ -182,6 +183,19 @@ export default function CalendarPage() {
     }).finally(() => setGroupLoaded(true))
   }, [user])
 
+  const updateOfflineGrocery = useCallback(async (planData) => {
+    const ws = formatDate(weekStart)
+    try {
+      const [householdRes, familyRes] = await Promise.allSettled([
+        api.get('/household/settings'),
+        api.get('/family/'),
+      ])
+      const household = householdRes.status === 'fulfilled' ? householdRes.value.data : null
+      const family = familyRes.status === 'fulfilled' ? familyRes.value.data : []
+      await offlineDB.cacheGrocery(ws, computeGroceryList(planData, household, family))
+    } catch { /* ignore */ }
+  }, [weekStart])
+
   const fetchWeek = useCallback(async () => {
     setLoading(true)
     const ws = formatDate(weekStart)
@@ -360,18 +374,12 @@ export default function CalendarPage() {
         mealData: meal,
       }
       await offlineDB.queueWrite(write)
-      setMealPlan((prev) => {
-        const filtered = prev.filter((p) => !(p.day_of_week === write.day && p.meal_slot === write.slot))
-        return [...filtered, {
-          id: null,
-          week_start: write.weekStart,
-          day_of_week: write.day,
-          meal_slot: write.slot,
-          meal_id: write.mealId,
-          meal: write.mealData,
-          planned_by: user?.username,
-        }]
-      })
+      const newPlan = [
+        ...mealPlan.filter((p) => !(p.day_of_week === write.day && p.meal_slot === write.slot)),
+        { id: null, week_start: write.weekStart, day_of_week: write.day, meal_slot: write.slot, meal_id: write.mealId, meal: write.mealData, planned_by: user?.username },
+      ]
+      setMealPlan(newPlan)
+      updateOfflineGrocery(newPlan)
       setHasQueuedWrites(true)
       setPickerSlot(null)
       return
@@ -391,6 +399,7 @@ export default function CalendarPage() {
     if (!isOnline) {
       await offlineDB.queueWrite({ op: 'clearWeek', weekStart: formatDate(weekStart) })
       setMealPlan([])
+      updateOfflineGrocery([])
       setHasQueuedWrites(true)
       setClearConfirm(false)
       return
@@ -442,22 +451,19 @@ export default function CalendarPage() {
           }
         }
 
-        setMealPlan((prev) => {
-          const base = overwrite
-            ? prev.filter((p) => !slots.includes(p.meal_slot))
-            : prev
-          const added = newEntries.map(({ day, slot, meal }) => ({
-            id: null,
-            week_start: ws,
-            day_of_week: day,
-            meal_slot: slot,
-            meal_id: meal.id,
-            meal,
-            planned_by: user?.username,
-          }))
-          return [...base, ...added]
-        })
-
+        const base = overwrite ? mealPlan.filter((p) => !slots.includes(p.meal_slot)) : mealPlan
+        const added = newEntries.map(({ day, slot, meal }) => ({
+          id: null,
+          week_start: ws,
+          day_of_week: day,
+          meal_slot: slot,
+          meal_id: meal.id,
+          meal,
+          planned_by: user?.username,
+        }))
+        const newPlan = [...base, ...added]
+        setMealPlan(newPlan)
+        updateOfflineGrocery(newPlan)
         setHasQueuedWrites(true)
         setShowAutoFill(false)
         return
@@ -476,7 +482,9 @@ export default function CalendarPage() {
     if (!isOnline) {
       const write = { op: 'remove', weekStart: formatDate(weekStart), day, slot }
       await offlineDB.queueWrite(write)
-      setMealPlan((prev) => prev.filter((p) => !(p.day_of_week === day && p.meal_slot === slot)))
+      const newPlan = mealPlan.filter((p) => !(p.day_of_week === day && p.meal_slot === slot))
+      setMealPlan(newPlan)
+      updateOfflineGrocery(newPlan)
       setHasQueuedWrites(true)
       return
     }
