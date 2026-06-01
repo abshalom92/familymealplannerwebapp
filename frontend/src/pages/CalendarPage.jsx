@@ -527,10 +527,11 @@ export default function CalendarPage() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3 flex-wrap">
           <h1 className="text-2xl font-bold text-gray-800">Weekly Meal Calendar</h1>
-          {canEdit && !flagBlocking && (isOnline || !multiHoH) && (
+          {canEdit && !flagBlocking && (
             <button
               onClick={() => setShowAutoFill(true)}
               disabled={!isOnline}
+              title={!isOnline ? 'Auto-Fill requires an internet connection' : undefined}
               className="flex items-center gap-1.5 px-4 py-1.5 bg-green-600 hover:bg-green-700 disabled:opacity-40 text-white text-sm font-semibold rounded-full transition-colors shadow-sm"
             >
               ✨ Auto-Fill
@@ -730,10 +731,18 @@ export default function CalendarPage() {
                               {entry.id === null && <span className="ml-1 text-amber-500 text-[10px]">●</span>}
                             </span>
                             {canEditSlot && (
-                              <button
-                                onClick={(e) => handleRemoveMeal(e, entry.id, day, slot)}
-                                className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 text-xs transition-opacity"
-                              >✕</button>
+                              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setPickerSlot({ day, meal: slot }) }}
+                                  className="text-blue-400 hover:text-blue-600 text-xs"
+                                  title="Replace meal"
+                                >✎</button>
+                                <button
+                                  onClick={(e) => handleRemoveMeal(e, entry.id, day, slot)}
+                                  className="text-red-400 hover:text-red-600 text-xs"
+                                  title="Remove meal"
+                                >✕</button>
+                              </div>
                             )}
                           </div>
                         </div>

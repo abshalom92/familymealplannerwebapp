@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useOnlineStatus } from '../hooks/useOnlineStatus'
 import api from '../api/client'
 
 export default function Navbar() {
   const { user, logout } = useAuth()
+  const isOnline = useOnlineStatus()
   const location = useLocation()
   const [unreadCount, setUnreadCount] = useState(0)
 
@@ -83,7 +85,15 @@ export default function Navbar() {
             <span className="text-sm text-gray-500 hidden sm:block">👤 Guest</span>
           )}
           <button
-            onClick={logout}
+            onClick={() => {
+              if (!isOnline) {
+                const ok = window.confirm(
+                  "You're offline. If you sign out you won't be able to sign back in until the server is available. Sign out anyway?"
+                )
+                if (!ok) return
+              }
+              logout()
+            }}
             className="text-sm text-gray-500 hover:text-red-500 px-3 py-1 rounded-lg hover:bg-red-50 transition-colors"
           >
             Sign out
