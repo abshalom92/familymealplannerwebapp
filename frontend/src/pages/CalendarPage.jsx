@@ -183,8 +183,10 @@ export default function CalendarPage() {
     }).finally(() => setGroupLoaded(true))
   }, [user])
 
-  const updateOfflineGrocery = useCallback(async (planData) => {
+  const updateOfflineCaches = useCallback(async (planData) => {
     const ws = formatDate(weekStart)
+    // Persist plan so it survives navigation away and back
+    await offlineDB.cacheWeekPlan(ws, planData)
     try {
       const [householdRes, familyRes] = await Promise.allSettled([
         api.get('/household/settings'),
@@ -379,7 +381,7 @@ export default function CalendarPage() {
         { id: null, week_start: write.weekStart, day_of_week: write.day, meal_slot: write.slot, meal_id: write.mealId, meal: write.mealData, planned_by: user?.username },
       ]
       setMealPlan(newPlan)
-      updateOfflineGrocery(newPlan)
+      updateOfflineCaches(newPlan)
       setHasQueuedWrites(true)
       setPickerSlot(null)
       return
@@ -399,7 +401,7 @@ export default function CalendarPage() {
     if (!isOnline) {
       await offlineDB.queueWrite({ op: 'clearWeek', weekStart: formatDate(weekStart) })
       setMealPlan([])
-      updateOfflineGrocery([])
+      updateOfflineCaches([])
       setHasQueuedWrites(true)
       setClearConfirm(false)
       return
@@ -463,7 +465,7 @@ export default function CalendarPage() {
         }))
         const newPlan = [...base, ...added]
         setMealPlan(newPlan)
-        updateOfflineGrocery(newPlan)
+        updateOfflineCaches(newPlan)
         setHasQueuedWrites(true)
         setShowAutoFill(false)
         return
@@ -484,7 +486,7 @@ export default function CalendarPage() {
       await offlineDB.queueWrite(write)
       const newPlan = mealPlan.filter((p) => !(p.day_of_week === day && p.meal_slot === slot))
       setMealPlan(newPlan)
-      updateOfflineGrocery(newPlan)
+      updateOfflineCaches(newPlan)
       setHasQueuedWrites(true)
       return
     }
