@@ -11,27 +11,32 @@ const CATEGORY_COLORS = {
 }
 
 export default function RecipeModal({ mealId, initialMeal = null, onClose }) {
-  const [meal, setMeal] = useState(initialMeal)
+  const [meal, setMeal] = useState(null)
   const [error, setError] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
     if (!mealId) return
-    if (initialMeal) { setMeal(initialMeal); return }
+    // Reset state for the new meal
+    setMeal(null)
     setError(false)
+    if (initialMeal) return  // use initialMeal directly via displayMeal below
     api.get(`/meals/${mealId}`)
       .then((r) => setMeal(r.data))
       .catch(() => setError(true))
-  }, [mealId])
+  }, [mealId, initialMeal])
 
   if (!mealId) return null
 
-  const totalTime = meal ? meal.prep_time + meal.cook_time : 0
+  // Use initialMeal prop directly so content shows immediately without waiting
+  // for the useEffect cycle — avoids spinner flash and offline hang
+  const displayMeal = meal ?? initialMeal
+  const totalTime = displayMeal ? displayMeal.prep_time + displayMeal.cook_time : 0
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        {!meal ? (
+        {!displayMeal ? (
           <div className="flex flex-col items-center justify-center h-48 gap-4 p-6">
             {error ? (
               <>
@@ -51,10 +56,10 @@ export default function RecipeModal({ mealId, initialMeal = null, onClose }) {
               <div className="flex justify-between items-start">
                 <div>
                   <span className="text-xs font-semibold uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded-full">
-                    {meal.meal_type}
+                    {displayMeal.meal_type}
                   </span>
-                  <h2 className="text-2xl font-bold mt-2">{meal.name}</h2>
-                  <p className="text-green-100 mt-1 text-sm">{meal.description}</p>
+                  <h2 className="text-2xl font-bold mt-2">{displayMeal.name}</h2>
+                  <p className="text-green-100 mt-1 text-sm">{displayMeal.description}</p>
                 </div>
                 <button
                   onClick={onClose}
@@ -64,10 +69,10 @@ export default function RecipeModal({ mealId, initialMeal = null, onClose }) {
                 </button>
               </div>
               <div className="flex gap-4 mt-4 text-sm">
-                <span>⏱ Prep {meal.prep_time} min</span>
-                <span>🍳 Cook {meal.cook_time} min</span>
+                <span>⏱ Prep {displayMeal.prep_time} min</span>
+                <span>🍳 Cook {displayMeal.cook_time} min</span>
                 <span>⏰ Total {totalTime} min</span>
-                <span>🍽 Serves {meal.servings}</span>
+                <span>🍽 Serves {displayMeal.servings}</span>
               </div>
             </div>
 
@@ -76,7 +81,7 @@ export default function RecipeModal({ mealId, initialMeal = null, onClose }) {
               <div>
                 <h3 className="font-semibold text-gray-800 mb-3 text-lg">Ingredients</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {meal.ingredients.map((ing) => (
+                  {(displayMeal.ingredients || []).map((ing) => (
                     <div key={ing.id} className="flex items-center gap-2 py-1.5 px-3 bg-gray-50 rounded-lg">
                       <span
                         className={`text-xs font-medium px-2 py-0.5 rounded-full ${CATEGORY_COLORS[ing.category] || 'bg-gray-100 text-gray-600'}`}
@@ -95,7 +100,7 @@ export default function RecipeModal({ mealId, initialMeal = null, onClose }) {
               <div>
                 <h3 className="font-semibold text-gray-800 mb-3 text-lg">Instructions</h3>
                 <div className="space-y-2">
-                  {meal.instructions.split('\n').filter(Boolean).map((step, i) => (
+                  {(displayMeal.instructions || '').split('\n').filter(Boolean).map((step, i) => (
                     <div key={i} className="flex gap-3 text-sm text-gray-700">
                       <span className="flex-shrink-0 w-6 h-6 bg-green-100 text-green-700 rounded-full flex items-center justify-center font-semibold text-xs">
                         {i + 1}
@@ -109,7 +114,7 @@ export default function RecipeModal({ mealId, initialMeal = null, onClose }) {
 
             <div className="px-6 pb-6 flex gap-3">
               <button
-                onClick={() => { onClose(); navigate(`/recipe/${meal.id}`) }}
+                onClick={() => { onClose(); navigate(`/recipe/${displayMeal.id}`) }}
                 className="flex-1 py-2 border-2 border-green-500 text-green-600 hover:bg-green-50 rounded-lg font-medium transition-colors text-sm"
               >
                 Open Full Page
