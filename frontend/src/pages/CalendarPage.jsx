@@ -210,10 +210,8 @@ export default function CalendarPage() {
         .then((r) => offlineDB.cacheGrocery(ws, r.data))
         .catch(() => {})
     } catch {
-      if (!navigator.onLine) {
-        const cached = await offlineDB.getWeekPlan(ws)
-        if (cached) setMealPlan(cached)
-      }
+      const cached = await offlineDB.getWeekPlan(ws)
+      if (cached) setMealPlan(cached)
     } finally {
       setLoading(false)
     }
