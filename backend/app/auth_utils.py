@@ -9,13 +9,17 @@ from .database import get_db
 from . import models
 import os
 
-SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkey")
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise ValueError("SECRET_KEY environment variable must be set")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
 REFRESH_SECRET_KEY = os.getenv("REFRESH_SECRET_KEY", SECRET_KEY + "_refresh")
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "30"))
 
-pwd_context = CryptContext(schemes=["sha256_crypt"], deprecated="auto")
+# bcrypt is the primary scheme; sha256_crypt listed as deprecated so existing
+# hashes still verify — new passwords are hashed with bcrypt automatically.
+pwd_context = CryptContext(schemes=["bcrypt", "sha256_crypt"], deprecated=["sha256_crypt"])
 bearer_scheme = HTTPBearer(auto_error=False)
 
 

@@ -5,6 +5,7 @@ from ..database import get_db
 from .. import models, schemas
 from ..auth_utils import hash_password, verify_password, create_access_token, create_refresh_token, verify_refresh_token
 from ..limiter import limiter
+import os
 import uuid
 
 router = APIRouter()
@@ -12,6 +13,7 @@ router = APIRouter()
 _REFRESH_COOKIE = "refresh_token"
 _REFRESH_PATH = "/api/auth/refresh"
 _REFRESH_MAX_AGE = 30 * 24 * 3600
+_SECURE = os.getenv("ENVIRONMENT") == "production"
 
 
 def _set_refresh_cookie(response: Response, token: str) -> None:
@@ -19,6 +21,7 @@ def _set_refresh_cookie(response: Response, token: str) -> None:
         key=_REFRESH_COOKIE,
         value=token,
         httponly=True,
+        secure=_SECURE,
         max_age=_REFRESH_MAX_AGE,
         path=_REFRESH_PATH,
         samesite="lax",

@@ -1,10 +1,11 @@
 import secrets
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import models, schemas
 from ..auth_utils import get_current_user
+from ..limiter import limiter
 
 router = APIRouter()
 
@@ -93,7 +94,9 @@ def create_group(
 
 
 @router.post('/join', response_model=schemas.FamilyGroupOut)
-def join_group(
+@limiter.limit("5/minute")
+async def join_group(
+    request: Request,
     data: schemas.FamilyGroupJoin,
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),

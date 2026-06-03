@@ -10,7 +10,7 @@ router = APIRouter()
 
 def _require_admin(x_admin_secret: str = Header(...)):
     admin_secret = os.getenv("ADMIN_SECRET", "")
-    if not admin_secret or x_admin_secret != admin_secret:
+    if not admin_secret or not secrets.compare_digest(x_admin_secret, admin_secret):
         raise HTTPException(status_code=403, detail="Invalid admin secret")
 
 

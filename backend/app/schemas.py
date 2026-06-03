@@ -1,13 +1,16 @@
-from pydantic import BaseModel, Field, model_validator, field_validator
-from typing import Optional, List
+from pydantic import BaseModel, Field, EmailStr, model_validator, field_validator
+from typing import Optional, List, Literal
 from datetime import date, datetime
 
 
+_MEAL_SLOTS = Literal["breakfast", "lunch", "dinner", "snack", "beverage"]
+
+
 class UserCreate(BaseModel):
-    username: str
-    email: Optional[str] = None
+    username: str = Field(min_length=2, max_length=30)
+    email: Optional[EmailStr] = None
     password: str
-    invite_code: str
+    invite_code: str = Field(min_length=1, max_length=32)
 
     @field_validator('password')
     @classmethod
@@ -27,8 +30,8 @@ class UserCreate(BaseModel):
 
 
 class UserLogin(BaseModel):
-    username: str
-    password: str
+    username: str = Field(min_length=1, max_length=30)
+    password: str = Field(min_length=1, max_length=256)
 
 
 class Token(BaseModel):
@@ -74,9 +77,9 @@ class MealOut(BaseModel):
 
 class MealPlanCreate(BaseModel):
     week_start: date
-    day_of_week: int
-    meal_slot: str
-    meal_id: int
+    day_of_week: int = Field(ge=0, le=6)
+    meal_slot: _MEAL_SLOTS
+    meal_id: int = Field(gt=0)
 
 
 class MealPlanOut(BaseModel):
@@ -94,7 +97,7 @@ class MealPlanOut(BaseModel):
 
 class AutofillRequest(BaseModel):
     week_start: date
-    slots: List[str]  # e.g. ["breakfast", "lunch", "dinner"]
+    slots: List[_MEAL_SLOTS]
     overwrite: bool = False
 
 
@@ -175,16 +178,16 @@ class FamilyGroupOut(BaseModel):
 
 
 class FamilyGroupCreate(BaseModel):
-    name: str
+    name: str = Field(min_length=1, max_length=50)
 
 
 class FamilyGroupJoin(BaseModel):
-    join_code: str
+    join_code: str = Field(min_length=1, max_length=16)
 
 
 class ProfileOut(BaseModel):
     username: str
-    email: Optional[str] = None
+    email: Optional[EmailStr] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     calorie_goal: Optional[int] = None
@@ -201,32 +204,32 @@ class ProfileOut(BaseModel):
 
 
 class ProfileUpdate(BaseModel):
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    calorie_goal: Optional[int] = None
-    protein_goal_g: Optional[int] = None
-    carbs_goal_g: Optional[int] = None
-    fats_goal_g: Optional[int] = None
-    dietary_notes: Optional[str] = None
-    age: Optional[int] = None
-    weight_lbs: Optional[float] = None
-    timezone: Optional[str] = None
+    first_name: Optional[str] = Field(None, max_length=50)
+    last_name: Optional[str] = Field(None, max_length=50)
+    calorie_goal: Optional[int] = Field(None, ge=0, le=20000)
+    protein_goal_g: Optional[int] = Field(None, ge=0, le=1000)
+    carbs_goal_g: Optional[int] = Field(None, ge=0, le=2000)
+    fats_goal_g: Optional[int] = Field(None, ge=0, le=1000)
+    dietary_notes: Optional[str] = Field(None, max_length=500)
+    age: Optional[int] = Field(None, ge=0, le=150)
+    weight_lbs: Optional[float] = Field(None, ge=0, le=2000)
+    timezone: Optional[str] = Field(None, max_length=64)
 
 
 class FamilyMemberCreate(BaseModel):
-    name: str
-    allergies: List[str] = []
-    foods_to_avoid: List[str] = []
-    food_preferences: List[str] = []
-    weight_lbs: Optional[float] = None
+    name: str = Field(min_length=1, max_length=50)
+    allergies: List[str] = Field(default=[], max_length=50)
+    foods_to_avoid: List[str] = Field(default=[], max_length=50)
+    food_preferences: List[str] = Field(default=[], max_length=50)
+    weight_lbs: Optional[float] = Field(None, ge=0, le=2000)
 
 
 class FamilyMemberUpdate(BaseModel):
-    name: Optional[str] = None
-    allergies: Optional[List[str]] = None
-    foods_to_avoid: Optional[List[str]] = None
-    food_preferences: Optional[List[str]] = None
-    weight_lbs: Optional[float] = None
+    name: Optional[str] = Field(None, min_length=1, max_length=50)
+    allergies: Optional[List[str]] = Field(None, max_length=50)
+    foods_to_avoid: Optional[List[str]] = Field(None, max_length=50)
+    food_preferences: Optional[List[str]] = Field(None, max_length=50)
+    weight_lbs: Optional[float] = Field(None, ge=0, le=2000)
 
 
 class FamilyMemberOut(BaseModel):
@@ -252,9 +255,9 @@ class RequesterOut(BaseModel):
 
 class MealRequestCreate(BaseModel):
     week_start: date
-    day_of_week: int
-    meal_slot: str
-    meal_id: int
+    day_of_week: int = Field(ge=0, le=6)
+    meal_slot: _MEAL_SLOTS
+    meal_id: int = Field(gt=0)
 
 
 class MealRequestOut(BaseModel):
@@ -291,12 +294,12 @@ class FamilyNotifyRequest(BaseModel):
 
 
 class WeightEntryCreate(BaseModel):
-    weight_lbs: float
+    weight_lbs: float = Field(gt=0, le=2000)
     logged_at: Optional[datetime] = None
 
 
 class WeightEntryUpdate(BaseModel):
-    weight_lbs: Optional[float] = None
+    weight_lbs: Optional[float] = Field(None, gt=0, le=2000)
     logged_at: Optional[datetime] = None
 
 

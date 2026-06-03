@@ -10,11 +10,20 @@ import os
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Family Meal Planner API")
+_PROD = os.getenv("ENVIRONMENT") == "production"
+
+app = FastAPI(
+    title="Family Meal Planner API",
+    docs_url=None if _PROD else "/docs",
+    redoc_url=None if _PROD else "/redoc",
+    openapi_url=None if _PROD else "/openapi.json",
+)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-cors_origins = ["http://localhost:5173", "http://localhost:3000"]
+cors_origins = []
+if not _PROD:
+    cors_origins += ["http://localhost:5173", "http://localhost:3000"]
 extra_origin = os.getenv("CORS_ORIGIN")
 if extra_origin:
     cors_origins.append(extra_origin)

@@ -50,7 +50,7 @@ def search_ingredients(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    if len(q) < 2:
+    if len(q) < 2 or len(q) > 100:
         return []
     results = (
         db.query(models.MealIngredient.name)
