@@ -55,18 +55,26 @@ export default function GroceryPage() {
     const key = formatDate(weekStart)
     const saved = localStorage.getItem(`grocery-checked-${key}`)
     setChecked(saved ? JSON.parse(saved) : {})
-    api
-      .get('/grocery/week', { params: { week_start: key } })
-      .then((r) => {
+    ;(async () => {
+      try {
+        // If offline edits are queued, IDB is authoritative — SW cache would serve stale grocery data
+        if (await offlineDB.hasQueuedWrites()) {
+          const cached = await offlineDB.getGrocery(key)
+          if (cached) { setItems(cached); setFromCache(true) }
+          else setItems([])
+          return
+        }
+        const r = await api.get('/grocery/week', { params: { week_start: key } })
         setItems(r.data)
         offlineDB.cacheGrocery(key, r.data)
-      })
-      .catch(async () => {
+      } catch {
         const cached = await offlineDB.getGrocery(key)
         if (cached) { setItems(cached); setFromCache(true) }
         else setItems([])
-      })
-      .finally(() => setLoading(false))
+      } finally {
+        setLoading(false)
+      }
+    })()
   }, [weekStart])
 
   const grouped = items.reduce((acc, item) => {

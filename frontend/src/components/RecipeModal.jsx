@@ -21,7 +21,7 @@ export default function RecipeModal({ mealId, initialMeal = null, onClose }) {
     setMeal(null)
     setError(false)
     if (initialMeal) return  // use initialMeal directly via displayMeal below
-    api.get(`/meals/${mealId}`)
+    api.get(`/meals/${mealId}`, { timeout: 5000 })
       .then((r) => setMeal(r.data))
       .catch(() => setError(true))
   }, [mealId, initialMeal])

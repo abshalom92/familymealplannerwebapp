@@ -202,6 +202,12 @@ export default function CalendarPage() {
     setLoading(true)
     const ws = formatDate(weekStart)
     try {
+      // If offline edits are queued, IDB is authoritative — SW cache would serve stale server data
+      if (await offlineDB.hasQueuedWrites()) {
+        const cached = await offlineDB.getWeekPlan(ws)
+        if (cached) setMealPlan(cached)
+        return
+      }
       const { data } = await api.get('/calendar/week', { params: { week_start: ws } })
       setMealPlan(data)
       offlineDB.cacheWeekPlan(ws, data)
