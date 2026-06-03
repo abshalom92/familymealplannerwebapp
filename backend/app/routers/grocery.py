@@ -6,6 +6,7 @@ from collections import defaultdict
 from ..database import get_db
 from .. import models, schemas
 from ..auth_utils import get_current_user, get_group_user_ids
+from ..allergen_aliases import ingredient_matches_allergen
 
 router = APIRouter()
 
@@ -81,7 +82,7 @@ def get_grocery_list(
             total_quantity=round(v["total_quantity"], 2),
             unit=v["unit"],
             category=v["category"],
-            allergen_warning=bool(allergens and any(a in v["name"].lower() for a in allergens)),
+            allergen_warning=bool(allergens and any(ingredient_matches_allergen(v["name"], a) for a in allergens)),
         )
         for v in aggregated.values()
     ]

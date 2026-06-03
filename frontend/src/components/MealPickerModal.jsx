@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import api from '../api/client'
+import { ingredientMatchesAllergen } from '../lib/allergenAliases'
 
 const SLOT_LABELS = { breakfast: '☀️ Breakfast', lunch: '🌤 Lunch', dinner: '🌙 Dinner' }
 const DAY_LABELS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -8,7 +9,7 @@ function mealContainsAllergen(meal, allergenSet) {
   if (allergenSet.size === 0) return false
   return meal.ingredients?.some((ing) =>
     [...allergenSet].some(
-      (a) => ing.name.toLowerCase().includes(a) || (ing.category && ing.category.toLowerCase().includes(a))
+      (a) => ingredientMatchesAllergen(ing.name, a) || (ing.category && ing.category.toLowerCase().includes(a))
     )
   )
 }

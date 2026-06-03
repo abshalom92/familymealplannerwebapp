@@ -1,3 +1,5 @@
+import { ingredientMatchesAllergen } from './allergenAliases'
+
 const ADULT = 1.0
 const CHILD = 0.75
 const TODDLER = 0.5
@@ -33,7 +35,7 @@ export function computeGroceryList(mealPlan, household, familyMembers) {
     total_quantity: Math.round(v.total_quantity * 100) / 100,
     unit: v.unit,
     category: v.category,
-    allergen_warning: allergens.size > 0 && [...allergens].some((a) => v.name.toLowerCase().includes(a)),
+    allergen_warning: allergens.size > 0 && [...allergens].some((a) => ingredientMatchesAllergen(v.name, a)),
   }))
 
   items.sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name))

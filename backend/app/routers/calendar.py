@@ -6,6 +6,7 @@ import random
 from ..database import get_db
 from .. import models, schemas
 from ..auth_utils import get_current_user, get_group_user_ids
+from ..allergen_aliases import ingredient_matches_allergen
 
 router = APIRouter()
 
@@ -108,9 +109,7 @@ def autofill_week(
     if blocked:
         safe = []
         for meal in all_meals:
-            tokens = {ing.name.lower() for ing in meal.ingredients}
-            tokens |= {ing.category.lower() for ing in meal.ingredients if ing.category}
-            if not any(any(b in t for t in tokens) for b in blocked):
+            if not any(ingredient_matches_allergen(ing.name, b) for ing in meal.ingredients for b in blocked):
                 safe.append(meal)
         all_meals = safe
 
