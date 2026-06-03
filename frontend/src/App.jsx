@@ -14,7 +14,13 @@ import InstallPromptBanner from './components/InstallPromptBanner'
 
 function ProtectedRoute({ children }) {
   const { user } = useAuth()
-  return user ? children : <Navigate to="/" replace />
+  if (!user) return <Navigate to="/" replace />
+  return (
+    <>
+      <Navbar />
+      <main>{children}</main>
+    </>
+  )
 }
 
 function AppRoutes() {
@@ -23,69 +29,13 @@ function AppRoutes() {
     <>
     <Routes>
       <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <Navbar />
-            <DashboardPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/calendar"
-        element={
-          <ProtectedRoute>
-            <Navbar />
-            <CalendarPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/grocery"
-        element={
-          <ProtectedRoute>
-            <Navbar />
-            <GroceryPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/recipe/:id"
-        element={
-          <ProtectedRoute>
-            <Navbar />
-            <RecipePage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/family"
-        element={
-          <ProtectedRoute>
-            <Navbar />
-            <FamilyPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/profile"
-        element={
-          <ProtectedRoute>
-            <Navbar />
-            <ProfilePage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/inbox"
-        element={
-          <ProtectedRoute>
-            <Navbar />
-            <InboxPage />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+      <Route path="/calendar"  element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
+      <Route path="/grocery"   element={<ProtectedRoute><GroceryPage /></ProtectedRoute>} />
+      <Route path="/recipe/:id" element={<ProtectedRoute><RecipePage /></ProtectedRoute>} />
+      <Route path="/family"    element={<ProtectedRoute><FamilyPage /></ProtectedRoute>} />
+      <Route path="/profile"   element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+      <Route path="/inbox"     element={<ProtectedRoute><InboxPage /></ProtectedRoute>} />
     </Routes>
     <GuestPromptModal />
     <InstallPromptBanner />

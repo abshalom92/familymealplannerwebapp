@@ -53,7 +53,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-orange-50 flex items-center justify-center p-4">
+    <main className="min-h-screen bg-gradient-to-br from-green-50 to-orange-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Hero */}
         <div className="text-center mb-8">
@@ -70,7 +70,7 @@ export default function LoginPage() {
                 key={m}
                 onClick={() => { setMode(m); setError('') }}
                 className={`flex-1 py-2 rounded-md text-sm font-medium transition-colors capitalize ${
-                  mode === m ? 'bg-white shadow text-green-700' : 'text-gray-500 hover:text-gray-700'
+                  mode === m ? 'bg-white shadow text-green-700' : 'text-gray-600 hover:text-gray-800'
                 }`}
               >
                 {m === 'login' ? 'Sign In' : 'Sign Up'}
@@ -135,7 +135,7 @@ export default function LoginPage() {
                     [checks.number,    'One number'],
                     [checks.special,   'One special character (!@#$%^&*...)'],
                   ].map(([ok, label]) => (
-                    <li key={label} className={`flex items-center gap-1.5 text-xs ${ok ? 'text-green-600' : 'text-gray-400'}`}>
+                    <li key={label} className={`flex items-center gap-1.5 text-xs ${ok ? 'text-green-600' : 'text-gray-500'}`}>
                       <span>{ok ? '✓' : '○'}</span> {label}
                     </li>
                   ))}
@@ -150,7 +150,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading || (mode === 'register' && (!passwordValid || !form.inviteCode.trim()))}
-              className="w-full py-2.5 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50"
+              className="w-full py-2.5 bg-green-700 hover:bg-green-800 text-white font-semibold rounded-lg transition-colors disabled:opacity-50"
             >
               {loading ? 'Loading…' : mode === 'login' ? 'Sign In' : 'Create Account'}
             </button>
@@ -158,22 +158,22 @@ export default function LoginPage() {
 
           <div className="mt-4 flex items-center gap-3">
             <hr className="flex-1 border-gray-200" />
-            <span className="text-gray-400 text-sm">or</span>
+            <span className="text-gray-500 text-sm">or</span>
             <hr className="flex-1 border-gray-200" />
           </div>
 
           <button
             onClick={handleGuest}
             disabled={loading}
-            className="mt-4 w-full py-2.5 border-2 border-orange-400 text-orange-500 hover:bg-orange-50 font-semibold rounded-lg transition-colors disabled:opacity-50"
+            className="mt-4 w-full py-2.5 border-2 border-orange-600 text-orange-700 hover:bg-orange-50 font-semibold rounded-lg transition-colors disabled:opacity-50"
           >
             Continue as Guest 👋
           </button>
-          <p className="text-xs text-gray-400 text-center mt-2">
+          <p className="text-xs text-gray-500 text-center mt-2">
             Guest sessions are not saved between visits
           </p>
         </div>
       </div>
-    </div>
+    </main>
   )
 }
