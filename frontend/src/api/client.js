@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { offlineDB } from '../lib/offlineDB'
 
 const api = axios.create({ baseURL: '/api', withCredentials: true })
 
@@ -25,6 +26,7 @@ api.interceptors.response.use(
           .then(({ data }) => {
             localStorage.setItem('token', data.access_token)
             localStorage.setItem('user', JSON.stringify({ username: data.username, isGuest: data.is_guest }))
+            offlineDB.saveToken(data.access_token)
             return data.access_token
           })
           .catch(() => {

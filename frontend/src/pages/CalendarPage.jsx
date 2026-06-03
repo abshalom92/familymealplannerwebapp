@@ -183,6 +183,14 @@ export default function CalendarPage() {
     }).finally(() => setGroupLoaded(true))
   }, [user])
 
+  const registerBgSync = useCallback(async () => {
+    if (!('serviceWorker' in navigator) || !('SyncManager' in window)) return
+    try {
+      const reg = await navigator.serviceWorker.ready
+      await reg.sync.register('meal-plan-sync')
+    } catch { /* not supported or SW not active */ }
+  }, [])
+
   const updateOfflineCaches = useCallback(async (planData) => {
     const ws = formatDate(weekStart)
     // Persist plan so it survives navigation away and back
@@ -244,6 +252,19 @@ export default function CalendarPage() {
   useEffect(() => {
     offlineDB.hasQueuedWrites().then(setHasQueuedWrites)
   }, [])
+
+  // Listen for background sync completion — refresh plan after SW replays the queue
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return
+    const handler = (event) => {
+      if (event.data?.type === 'BG_SYNC_COMPLETE') {
+        setHasQueuedWrites(false)
+        fetchWeek()
+      }
+    }
+    navigator.serviceWorker.addEventListener('message', handler)
+    return () => navigator.serviceWorker.removeEventListener('message', handler)
+  }, [fetchWeek])
 
   // Sync write queue when coming back online
   useEffect(() => {
@@ -380,6 +401,7 @@ export default function CalendarPage() {
         mealData: meal,
       }
       await offlineDB.queueWrite(write)
+      registerBgSync()
       const newPlan = [
         ...mealPlan.filter((p) => !(p.day_of_week === write.day && p.meal_slot === write.slot)),
         { id: null, week_start: write.weekStart, day_of_week: write.day, meal_slot: write.slot, meal_id: write.mealId, meal: write.mealData, planned_by: user?.username },
@@ -405,6 +427,7 @@ export default function CalendarPage() {
     localStorage.removeItem(`grocery-checked-${formatDate(weekStart)}`)
     if (!isOnline) {
       await offlineDB.queueWrite({ op: 'clearWeek', weekStart: formatDate(weekStart) })
+      registerBgSync()
       setMealPlan([])
       updateOfflineCaches([])
       setHasQueuedWrites(true)
@@ -470,6 +493,7 @@ export default function CalendarPage() {
         }))
         const newPlan = [...base, ...added]
         localStorage.removeItem(`grocery-checked-${formatDate(weekStart)}`)
+        registerBgSync()
         setMealPlan(newPlan)
         updateOfflineCaches(newPlan)
         setHasQueuedWrites(true)
@@ -491,6 +515,7 @@ export default function CalendarPage() {
     if (!isOnline) {
       const write = { op: 'remove', weekStart: formatDate(weekStart), day, slot }
       await offlineDB.queueWrite(write)
+      registerBgSync()
       const newPlan = mealPlan.filter((p) => !(p.day_of_week === day && p.meal_slot === slot))
       setMealPlan(newPlan)
       updateOfflineCaches(newPlan)

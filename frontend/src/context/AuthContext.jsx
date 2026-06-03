@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import api from '../api/client'
+import { offlineDB } from '../lib/offlineDB'
 
 const AuthContext = createContext(null)
 
@@ -13,6 +14,7 @@ export function AuthProvider({ children }) {
     const { data } = await api.post('/auth/login', { username, password })
     localStorage.setItem('token', data.access_token)
     localStorage.setItem('user', JSON.stringify({ username: data.username, isGuest: data.is_guest }))
+    offlineDB.saveToken(data.access_token)
     setUser({ username: data.username, isGuest: data.is_guest })
   }
 
@@ -20,6 +22,7 @@ export function AuthProvider({ children }) {
     const { data } = await api.post('/auth/register', { username, email, password, invite_code: inviteCode })
     localStorage.setItem('token', data.access_token)
     localStorage.setItem('user', JSON.stringify({ username: data.username, isGuest: data.is_guest }))
+    offlineDB.saveToken(data.access_token)
     setUser({ username: data.username, isGuest: data.is_guest })
   }
 
@@ -28,6 +31,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem('token', data.access_token)
     localStorage.setItem('user', JSON.stringify({ username: data.username, isGuest: true }))
     localStorage.setItem('guestLoginTime', String(Date.now()))
+    offlineDB.saveToken(data.access_token)
     setUser({ username: data.username, isGuest: true })
   }
 
