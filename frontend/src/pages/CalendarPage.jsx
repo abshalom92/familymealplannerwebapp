@@ -402,6 +402,7 @@ export default function CalendarPage() {
   }
 
   const handleClearWeek = async () => {
+    localStorage.removeItem(`grocery-checked-${formatDate(weekStart)}`)
     if (!isOnline) {
       await offlineDB.queueWrite({ op: 'clearWeek', weekStart: formatDate(weekStart) })
       setMealPlan([])
@@ -468,6 +469,7 @@ export default function CalendarPage() {
           planned_by: user?.username,
         }))
         const newPlan = [...base, ...added]
+        localStorage.removeItem(`grocery-checked-${formatDate(weekStart)}`)
         setMealPlan(newPlan)
         updateOfflineCaches(newPlan)
         setHasQueuedWrites(true)
@@ -475,6 +477,7 @@ export default function CalendarPage() {
         return
       }
 
+      localStorage.removeItem(`grocery-checked-${formatDate(weekStart)}`)
       await api.post('/calendar/autofill', { week_start: formatDate(weekStart), slots, overwrite })
       setShowAutoFill(false)
       fetchWeek()
