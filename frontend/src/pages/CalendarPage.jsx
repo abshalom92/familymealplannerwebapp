@@ -108,6 +108,7 @@ export default function CalendarPage() {
   const [mealPlan, setMealPlan] = useState([])
   const [viewMealId, setViewMealId] = useState(null)
   const [viewMealData, setViewMealData] = useState(null)
+  const [viewSubstitutions, setViewSubstitutions] = useState(null)
   const [pickerSlot, setPickerSlot] = useState(null)
   const [loading, setLoading] = useState(false)
   const [showAutoFill, setShowAutoFill] = useState(false)
@@ -812,7 +813,7 @@ export default function CalendarPage() {
                       <div
                         key={day}
                         className="min-h-[80px] rounded-xl border-2 border-amber-300 bg-amber-50 relative group cursor-pointer"
-                        onClick={() => { setViewMealId(myReq.meal.id); setViewMealData(myReq.meal) }}
+                        onClick={() => { setViewMealId(myReq.meal.id); setViewMealData(myReq.meal); setViewSubstitutions({}) }}
                       >
                         <div className="p-2 h-full flex flex-col justify-between">
                           <p className="text-xs font-semibold text-amber-800 leading-tight line-clamp-2">
@@ -841,7 +842,7 @@ export default function CalendarPage() {
                         canEditSlot || entry ? 'cursor-pointer' : 'cursor-default opacity-70'
                       } ${SLOT_COLORS[slot]}`}
                       onClick={() => {
-                        if (entry) { setViewMealId(entry.meal_id); setViewMealData(entry.meal); return }
+                        if (entry) { setViewMealId(entry.meal_id); setViewMealData(entry.meal); setViewSubstitutions(entry.substitutions || {}); return }
                         if (canEditSlot) setPickerSlot({ day, meal: slot })
                       }}
                     >
@@ -856,6 +857,9 @@ export default function CalendarPage() {
                                 ? `@${entry.planned_by}`
                                 : `${entry.meal.prep_time + entry.meal.cook_time}m`}
                               {entry.id === null && <span className="ml-1 text-amber-500 text-[10px]">●</span>}
+                            {entry.substitutions && Object.keys(entry.substitutions).length > 0 && (
+                              <span className="ml-1 text-amber-500 text-[10px]" title="Allergen substitutions applied">✦</span>
+                            )}
                             </span>
                             {canEditSlot && (
                               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -889,7 +893,7 @@ export default function CalendarPage() {
         </div>
       )}
 
-      <RecipeModal mealId={viewMealId} initialMeal={viewMealData} onClose={() => { setViewMealId(null); setViewMealData(null) }} />
+      <RecipeModal mealId={viewMealId} initialMeal={viewMealData} substitutions={viewSubstitutions} onClose={() => { setViewMealId(null); setViewMealData(null); setViewSubstitutions(null) }} />
       {pickerSlot && (
         <MealPickerModal
           slot={pickerSlot}

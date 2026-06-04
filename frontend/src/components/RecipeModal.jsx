@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/client'
+import { applySubstitutions } from '../lib/ingredientSubstitutions'
 
 const CATEGORY_COLORS = {
   produce: 'bg-green-100 text-green-700',
@@ -10,7 +11,7 @@ const CATEGORY_COLORS = {
   pantry: 'bg-gray-100 text-gray-700',
 }
 
-export default function RecipeModal({ mealId, initialMeal = null, onClose }) {
+export default function RecipeModal({ mealId, initialMeal = null, substitutions = null, onClose }) {
   const [meal, setMeal] = useState(null)
   const [error, setError] = useState(false)
   const navigate = useNavigate()
@@ -79,17 +80,31 @@ export default function RecipeModal({ mealId, initialMeal = null, onClose }) {
             <div className="p-6 space-y-6">
               {/* Ingredients */}
               <div>
-                <h3 className="font-semibold text-gray-800 mb-3 text-lg">Ingredients</h3>
+                <h3 className="font-semibold text-gray-800 mb-3 text-lg">
+                  Ingredients
+                  {substitutions && Object.keys(substitutions).length > 0 && (
+                    <span className="ml-2 text-xs font-normal text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                      allergen swaps applied
+                    </span>
+                  )}
+                </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {(displayMeal.ingredients || []).map((ing) => (
-                    <div key={ing.id} className="flex items-center gap-2 py-1.5 px-3 bg-gray-50 rounded-lg">
+                  {applySubstitutions(displayMeal.ingredients || [], substitutions || {}).map((ing, i) => (
+                    <div key={ing.id ?? i} className={`flex items-center gap-2 py-1.5 px-3 rounded-lg ${ing._original ? 'bg-amber-50 border border-amber-100' : 'bg-gray-50'}`}>
                       <span
                         className={`text-xs font-medium px-2 py-0.5 rounded-full ${CATEGORY_COLORS[ing.category] || 'bg-gray-100 text-gray-600'}`}
                       >
                         {ing.category}
                       </span>
                       <span className="text-gray-700 text-sm">
-                        <strong>{ing.quantity} {ing.unit}</strong> {ing.name}
+                        <strong>{ing.quantity} {ing.unit}</strong>{' '}
+                        {ing._original ? (
+                          <>
+                            <span className="line-through text-gray-400">{ing._original}</span>
+                            {' → '}
+                            <span className="text-amber-700 font-medium">{ing.name}</span>
+                          </>
+                        ) : ing.name}
                       </span>
                     </div>
                   ))}

@@ -90,6 +90,7 @@ class MealPlanOut(BaseModel):
     meal_id: int
     meal: MealOut
     planned_by: Optional[str] = None
+    substitutions: Optional[dict] = None
 
     class Config:
         from_attributes = True

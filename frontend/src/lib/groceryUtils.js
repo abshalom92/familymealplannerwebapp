@@ -21,10 +21,14 @@ export function computeGroceryList(mealPlan, household, familyMembers) {
     const meal = plan.meal
     if (!meal?.ingredients?.length) continue
     const scale = totalPortions / (meal.servings || 1)
+    const subs = plan.substitutions || {}
     for (const ing of meal.ingredients) {
-      const key = `${ing.name.toLowerCase()}|${ing.unit}`
+      const sub = subs[ing.name]
+      const actualName = sub ? sub.name : ing.name
+      const actualCategory = sub ? sub.category : ing.category
+      const key = `${actualName.toLowerCase()}|${ing.unit}`
       if (!aggregated[key]) {
-        aggregated[key] = { name: ing.name, total_quantity: 0, unit: ing.unit, category: ing.category }
+        aggregated[key] = { name: actualName, total_quantity: 0, unit: ing.unit, category: actualCategory }
       }
       aggregated[key].total_quantity += ing.quantity * scale
     }

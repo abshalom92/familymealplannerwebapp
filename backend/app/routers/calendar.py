@@ -7,6 +7,7 @@ from ..database import get_db
 from .. import models, schemas
 from ..auth_utils import get_current_user, get_group_user_ids
 from ..allergen_aliases import ingredient_matches_allergen
+from ..ingredient_substitutions import get_substitutions
 
 router = APIRouter()
 
@@ -73,6 +74,7 @@ def add_meal_to_calendar(
     if existing:
         existing.meal_id = plan.meal_id
         existing.user_id = current_user.id
+        existing.substitutions = {}  # manual pick clears auto-fill substitutions
         db.commit()
         db.refresh(existing)
         return existing
@@ -83,6 +85,7 @@ def add_meal_to_calendar(
         day_of_week=plan.day_of_week,
         meal_slot=plan.meal_slot,
         meal_id=plan.meal_id,
+        substitutions={},
     )
     db.add(meal_plan)
     db.commit()
@@ -97,7 +100,6 @@ def autofill_week(
     current_user: models.User = Depends(get_current_user),
 ):
     _require_flag(db, current_user)
-    # Load all meals, then filter out any blocked by the user's family allergens (9a)
     all_meals = db.query(models.Meal).all()
     family_members = db.query(models.FamilyMember).filter(
         models.FamilyMember.user_id == current_user.id
@@ -106,18 +108,31 @@ def autofill_week(
     for fm in family_members:
         blocked.update(kw.lower() for kw in (fm.allergies or []))
         blocked.update(kw.lower() for kw in (fm.foods_to_avoid or []))
+
+    # Build (meal, substitutions) pairs: prefer clean meals; fall back to substitutable ones.
     if blocked:
-        safe = []
+        combined: list[tuple] = []
         for meal in all_meals:
-            if not any(ingredient_matches_allergen(ing.name, b) for ing in meal.ingredients for b in blocked):
-                safe.append(meal)
-        all_meals = safe
+            has_allergen = any(
+                ingredient_matches_allergen(ing.name, b)
+                for ing in meal.ingredients
+                for b in blocked
+            )
+            if not has_allergen:
+                combined.append((meal, {}))
+            else:
+                subs = get_substitutions(meal, blocked)
+                if subs is not None:
+                    combined.append((meal, subs))
+    else:
+        combined = [(m, {}) for m in all_meals]
 
     meal_pool = {
-        slot: [m for m in all_meals if m.meal_type == slot or m.meal_type == "any"]
+        slot: [(m, s) for m, s in combined if m.meal_type == slot or m.meal_type == "any"]
         for slot in req.slots
     }
 
+    autofill_user_ids = get_group_user_ids(db, current_user)
     created = []
     for day in range(7):
         for slot in req.slots:
@@ -125,7 +140,6 @@ def autofill_week(
             if not pool:
                 continue
 
-            autofill_user_ids = get_group_user_ids(db, current_user)
             existing = (
                 db.query(models.MealPlan)
                 .filter(
@@ -140,10 +154,11 @@ def autofill_week(
             if existing and not req.overwrite:
                 continue
 
-            chosen = random.choice(pool)
+            chosen_meal, chosen_subs = random.choice(pool)
 
             if existing:
-                existing.meal_id = chosen.id
+                existing.meal_id = chosen_meal.id
+                existing.substitutions = chosen_subs
                 db.flush()
                 created.append(existing)
             else:
@@ -152,7 +167,8 @@ def autofill_week(
                     week_start=req.week_start,
                     day_of_week=day,
                     meal_slot=slot,
-                    meal_id=chosen.id,
+                    meal_id=chosen_meal.id,
+                    substitutions=chosen_subs,
                 )
                 db.add(plan)
                 db.flush()

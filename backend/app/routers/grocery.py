@@ -61,12 +61,16 @@ def get_grocery_list(
         base_servings = plan.meal.servings or 1
         scale = total_portions / base_servings
 
+        subs = plan.substitutions or {}
         for ing in plan.meal.ingredients:
-            key = f"{ing.name.lower()}|{ing.unit}"
+            sub = subs.get(ing.name)
+            actual_name = sub["name"] if sub else ing.name
+            actual_category = sub["category"] if sub else ing.category
+            key = f"{actual_name.lower()}|{ing.unit}"
             aggregated[key]["total_quantity"] += ing.quantity * scale
             aggregated[key]["unit"] = ing.unit
-            aggregated[key]["category"] = ing.category
-            aggregated[key]["name"] = ing.name
+            aggregated[key]["category"] = actual_category
+            aggregated[key]["name"] = actual_name
 
     # Build allergen set from all family members across the group (9e)
     all_family_members = db.query(models.FamilyMember).filter(

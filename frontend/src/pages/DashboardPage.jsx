@@ -6,6 +6,7 @@ import {
 } from 'recharts'
 import api from '../api/client'
 import { useAuth } from '../context/AuthContext'
+import { offlineDB } from '../lib/offlineDB'
 
 function getMondayOfWeek(date) {
   const d = new Date(date)
@@ -126,15 +127,30 @@ export default function DashboardPage() {
 
   const fetchPlans = useCallback(async () => {
     setLoading(true)
+    const ws = formatDate(weekStart)
     try {
-      const { data } = await api.get('/calendar/week', { params: { week_start: formatDate(weekStart) } })
+      if (await offlineDB.hasQueuedWrites()) {
+        const cached = await offlineDB.getWeekPlan(ws)
+        if (cached) { setPlans(cached); setLoading(false); return }
+      }
+      const { data } = await api.get('/calendar/week', { params: { week_start: ws } })
       setPlans(data)
+    } catch {
+      const cached = await offlineDB.getWeekPlan(ws)
+      if (cached) setPlans(cached)
     } finally {
       setLoading(false)
     }
   }, [weekStart])
 
   useEffect(() => { fetchPlans() }, [fetchPlans])
+
+  // Re-fetch when user returns to this tab (picks up offline IDB changes made on CalendarPage)
+  useEffect(() => {
+    const onFocus = () => fetchPlans()
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [fetchPlans])
 
   const firstName = profile?.first_name
     || (user?.username ? user.username.charAt(0).toUpperCase() + user.username.slice(1) : 'there')

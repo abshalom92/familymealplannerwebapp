@@ -177,6 +177,7 @@ class MealPlan(Base):
     day_of_week = Column(Integer)  # 0=Mon, 6=Sun
     meal_slot = Column(String)  # breakfast, lunch, dinner
     meal_id = Column(Integer, ForeignKey("meals.id"))
+    substitutions = Column(JSON, default=dict)  # {original_name: {name, category}}
     user = relationship("User", back_populates="meal_plans")
     meal = relationship("Meal", back_populates="meal_plans")
 
