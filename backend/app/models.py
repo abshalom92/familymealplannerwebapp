@@ -184,3 +184,34 @@ class MealPlan(Base):
     @property
     def planned_by(self):
         return self.user.username if self.user else None
+
+
+class VaultEntry(Base):
+    __tablename__ = "vault_entries"
+    id = Column(Integer, primary_key=True, index=True)
+    family_group_id = Column(Integer, ForeignKey("family_groups.id"), nullable=False)
+    meal_id = Column(Integer, ForeignKey("meals.id"), nullable=False)
+    added_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    storage_method = Column(String, nullable=False)
+    servings_total = Column(Integer, nullable=False)
+    servings_remaining = Column(Integer, nullable=False)
+    date_added = Column(Date, nullable=False)
+    expiration_date = Column(Date, nullable=False)
+    expiry_notified = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    meal = relationship("Meal")
+    added_by = relationship("User", foreign_keys=[added_by_user_id])
+
+    @property
+    def status(self):
+        from datetime import date as _date, timedelta
+        today = _date.today()
+        if self.servings_remaining <= 0:
+            return "used_up"
+        if self.expiration_date < today:
+            return "expired"
+        from .shelf_life import NOTIFY_DAYS_BEFORE
+        threshold = NOTIFY_DAYS_BEFORE.get(self.storage_method, 2)
+        if self.expiration_date <= today + timedelta(days=threshold):
+            return "expiring_soon"
+        return "fresh"

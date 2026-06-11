@@ -93,6 +93,7 @@ export default function DashboardPage() {
   const [inGroup, setInGroup]       = useState(false)
   const [mealReqPending, setMealReqPending] = useState([])   // HoH: pending requests this week
   const [myMealRequests, setMyMealRequests] = useState([])   // non-HoH: own pending requests
+  const [vaultExpiringCount, setVaultExpiringCount] = useState(0)
 
   // 10b: daily/weekly toggle
   const [statView, setStatView] = useState('daily')
@@ -112,6 +113,7 @@ export default function DashboardPage() {
         const hoh = me?.is_head ?? false
         setIsHoH(hoh)
         setInGroup(true)
+        api.get('/vault/expiring').then(({ data }) => setVaultExpiringCount(data.length)).catch(() => {})
         const ws = formatDate(getMondayOfWeek(new Date()))
         if (hoh) {
           api.get('/group/pending').then(({ data: p }) => setPendingCount(p.length)).catch(() => {})
@@ -281,6 +283,24 @@ export default function DashboardPage() {
             className="text-xs px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition-colors"
           >
             Review in Inbox
+          </button>
+        </div>
+      )}
+
+      {/* Vault expiring soon card */}
+      {vaultExpiringCount > 0 && (
+        <div className="mb-4 flex items-center justify-between bg-orange-50 border border-orange-200 rounded-2xl px-5 py-3">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🏪</span>
+            <p className="text-sm font-medium text-orange-800">
+              {vaultExpiringCount} vault item{vaultExpiringCount !== 1 ? 's' : ''} expiring soon
+            </p>
+          </div>
+          <button
+            onClick={() => navigate('/vault')}
+            className="text-xs px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-lg transition-colors"
+          >
+            View Vault
           </button>
         </div>
       )}

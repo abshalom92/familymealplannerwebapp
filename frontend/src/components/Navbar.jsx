@@ -50,6 +50,7 @@ export default function Navbar() {
           {navLink('/calendar', '📅 Calendar')}
           {navLink('/grocery', '🛒 Grocery List')}
           {navLink('/family', '👨‍👩‍👧 Family')}
+          {!user?.isGuest && navLink('/vault', '🏪 Vault')}
           {!user?.isGuest && (
             <Link
               to="/inbox"

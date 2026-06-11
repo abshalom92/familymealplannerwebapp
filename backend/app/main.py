@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from .database import engine, Base, SessionLocal
-from .routers import auth, meals, calendar, grocery, family, household, profile, group, admin, weight, requests as meal_requests_router, inbox
+from .routers import auth, meals, calendar, grocery, family, household, profile, group, admin, weight, requests as meal_requests_router, inbox, vault
 from .limiter import limiter
 from .seed_data import seed_meals
 import os
@@ -48,6 +48,7 @@ app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 app.include_router(weight.router, prefix="/api/weight", tags=["weight"])
 app.include_router(meal_requests_router.router, prefix="/api/meal-requests", tags=["meal-requests"])
 app.include_router(inbox.router, prefix="/api/inbox", tags=["inbox"])
+app.include_router(vault.router, prefix="/api/vault", tags=["vault"])
 
 
 @app.on_event("startup")

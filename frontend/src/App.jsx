@@ -8,6 +8,7 @@ import FamilyPage from './pages/FamilyPage'
 import DashboardPage from './pages/DashboardPage'
 import ProfilePage from './pages/ProfilePage'
 import InboxPage from './pages/InboxPage'
+import VaultPage from './pages/VaultPage'
 import Navbar from './components/Navbar'
 import GuestPromptModal from './components/GuestPromptModal'
 import InstallPromptBanner from './components/InstallPromptBanner'
@@ -36,6 +37,7 @@ function AppRoutes() {
       <Route path="/family"    element={<ProtectedRoute><FamilyPage /></ProtectedRoute>} />
       <Route path="/profile"   element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
       <Route path="/inbox"     element={<ProtectedRoute><InboxPage /></ProtectedRoute>} />
+      <Route path="/vault"     element={<ProtectedRoute><VaultPage /></ProtectedRoute>} />
     </Routes>
     <GuestPromptModal />
     <InstallPromptBanner />

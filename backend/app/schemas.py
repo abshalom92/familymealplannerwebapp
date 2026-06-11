@@ -311,3 +311,43 @@ class WeightEntryOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+_STORAGE_METHODS = Literal["frozen", "refrigerated", "pantry", "freeze_dried", "other"]
+
+
+class VaultAddedByOut(BaseModel):
+    id: int
+    username: str
+    first_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class VaultEntryOut(BaseModel):
+    id: int
+    meal: MealOut
+    storage_method: str
+    servings_total: int
+    servings_remaining: int
+    date_added: date
+    expiration_date: date
+    expiry_notified: bool
+    added_by: VaultAddedByOut
+    status: str
+
+    class Config:
+        from_attributes = True
+
+
+class VaultEntryCreate(BaseModel):
+    meal_id: int = Field(gt=0)
+    storage_method: _STORAGE_METHODS
+    servings_total: int = Field(gt=0, le=100)
+    date_added: date
+    expiration_date: date
+
+
+class VaultWithdrawRequest(BaseModel):
+    servings: int = Field(gt=0, le=100)
