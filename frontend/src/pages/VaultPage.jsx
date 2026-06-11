@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import api from '../api/client'
 import { useAuth } from '../context/AuthContext'
+import { offlineDB } from '../lib/offlineDB'
+import { useOnlineStatus } from '../hooks/useOnlineStatus'
 
 const STATUS_STYLES = {
   fresh:        'bg-green-100 text-green-700',
@@ -22,6 +24,20 @@ const STORAGE_LABELS = {
   other:        '📦 Other',
 }
 
+const NOTIFY_DAYS = { frozen: 14, refrigerated: 1, pantry: 2, freeze_dried: 2, other: 2 }
+
+function computeStatus(entry) {
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const [y, m, d] = entry.expiration_date.split('-').map(Number)
+  const expiry = new Date(y, m - 1, d)
+  if (entry.servings_remaining <= 0) return 'used_up'
+  if (expiry < today) return 'expired'
+  const threshold = NOTIFY_DAYS[entry.storage_method] ?? 2
+  const thresholdDate = new Date(today); thresholdDate.setDate(thresholdDate.getDate() + threshold)
+  if (expiry <= thresholdDate) return 'expiring_soon'
+  return 'fresh'
+}
+
 function daysUntil(dateStr) {
   const [y, m, d] = dateStr.split('-').map(Number)
   const expiry = new Date(y, m - 1, d)
@@ -36,6 +52,7 @@ function daysUntil(dateStr) {
 
 export default function VaultPage() {
   const { user } = useAuth()
+  const isOnline = useOnlineStatus()
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(true)
   const [isHoH, setIsHoH] = useState(false)
@@ -44,6 +61,8 @@ export default function VaultPage() {
   const [withdrawTarget, setWithdrawTarget] = useState(null)
   const [withdrawCount, setWithdrawCount] = useState(1)
   const [pageError, setPageError] = useState('')
+  const [hasQueuedVaultWrites, setHasQueuedVaultWrites] = useState(false)
+  const [vaultSyncLoading, setVaultSyncLoading] = useState(false)
 
   // Add-entry form state
   const [meals, setMeals] = useState([])
@@ -70,12 +89,44 @@ export default function VaultPage() {
     try {
       const { data } = await api.get('/vault')
       setEntries(data)
+      offlineDB.cacheVault(data)
     } catch {
-      setEntries([])
+      const cached = await offlineDB.getVault()
+      if (cached) setEntries(cached)
     } finally {
       setLoading(false)
     }
   }, [])
+
+  // Check for queued vault writes on mount
+  useEffect(() => {
+    offlineDB.hasQueuedVaultWrites().then(setHasQueuedVaultWrites)
+  }, [])
+
+  // Auto-sync vault queue when online (covers both reconnect and fresh load)
+  useEffect(() => {
+    if (isOnline && hasQueuedVaultWrites && !vaultSyncLoading) {
+      syncVaultQueue()
+    }
+  }, [isOnline, hasQueuedVaultWrites]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const syncVaultQueue = async () => {
+    const queue = await offlineDB.getVaultWriteQueue()
+    if (queue.length === 0) { setHasQueuedVaultWrites(false); return }
+    setVaultSyncLoading(true)
+    try {
+      for (const write of queue) {
+        if (write.op === 'withdraw') {
+          await api.post(`/vault/${write.entryId}/withdraw`, { servings: write.servings })
+        }
+      }
+      await offlineDB.clearVaultWriteQueue()
+      setHasQueuedVaultWrites(false)
+      await fetchEntries()
+    } catch { /* network still unreliable — keep queue, try again on next reconnect */ } finally {
+      setVaultSyncLoading(false)
+    }
+  }
 
   useEffect(() => { fetchEntries() }, [fetchEntries])
 
@@ -129,9 +180,29 @@ export default function VaultPage() {
 
   const handleWithdraw = async (entryId) => {
     setPageError('')
+    if (!isOnline) {
+      // Optimistic update — apply locally and queue for sync
+      setEntries(prev => prev.map(e => {
+        if (e.id !== entryId) return e
+        const updated = { ...e, servings_remaining: Math.max(0, e.servings_remaining - withdrawCount) }
+        updated.status = computeStatus(updated)
+        return updated
+      }))
+      await offlineDB.queueVaultWrite({ op: 'withdraw', entryId, servings: withdrawCount })
+      await offlineDB.cacheVault(entries.map(e => {
+        if (e.id !== entryId) return e
+        const updated = { ...e, servings_remaining: Math.max(0, e.servings_remaining - withdrawCount) }
+        updated.status = computeStatus(updated)
+        return updated
+      }))
+      setHasQueuedVaultWrites(true)
+      setWithdrawTarget(null)
+      return
+    }
     try {
       const { data } = await api.post(`/vault/${entryId}/withdraw`, { servings: withdrawCount })
       setEntries(prev => prev.map(e => e.id === entryId ? data : e))
+      offlineDB.cacheVault(entries.map(e => e.id === entryId ? data : e))
       setWithdrawTarget(null)
     } catch (e) {
       setPageError(e.response?.data?.detail || 'Withdraw failed')
@@ -168,6 +239,20 @@ export default function VaultPage() {
           </button>
         )}
       </div>
+
+      {!isOnline && (
+        <div className="mb-4 px-4 py-2.5 bg-gray-800 text-white rounded-xl text-sm flex items-center gap-2">
+          <span>📵</span>
+          <span className="font-medium">You're offline.</span>
+          <span className="text-gray-300">Withdrawals are saved locally and will sync when you reconnect.</span>
+        </div>
+      )}
+
+      {isOnline && hasQueuedVaultWrites && (
+        <div className="mb-4 px-4 py-2.5 bg-amber-50 border border-amber-300 rounded-xl text-sm text-amber-800">
+          {vaultSyncLoading ? '⏳ Syncing offline withdrawals…' : '✓ Syncing offline withdrawals…'}
+        </div>
+      )}
 
       {expiringSoon.length > 0 && (
         <div className="mb-6 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-3 flex items-center gap-3">

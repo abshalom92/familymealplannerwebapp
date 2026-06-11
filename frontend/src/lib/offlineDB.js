@@ -1,5 +1,5 @@
 const DB_NAME = 'mealplanner-offline'
-const DB_VERSION = 2
+const DB_VERSION = 3
 
 function openDB() {
   return new Promise((resolve, reject) => {
@@ -14,6 +14,10 @@ function openDB() {
         db.createObjectStore('writeQueue', { autoIncrement: true, keyPath: 'id' })
       if (!db.objectStoreNames.contains('auth'))
         db.createObjectStore('auth', { keyPath: 'key' })
+      if (!db.objectStoreNames.contains('vault'))
+        db.createObjectStore('vault', { keyPath: 'key' })
+      if (!db.objectStoreNames.contains('vaultWriteQueue'))
+        db.createObjectStore('vaultWriteQueue', { autoIncrement: true, keyPath: 'id' })
     }
     req.onsuccess = (e) => resolve(e.target.result)
     req.onerror = (e) => reject(e.target.error)
@@ -84,5 +88,40 @@ export const offlineDB = {
   },
   getToken() {
     return tx('auth', 'readonly', (s) => s.get('token')).then((r) => r?.value ?? null)
+  },
+  cacheVault(data) {
+    return tx('vault', 'readwrite', (s) => s.put({ key: 'data', data }))
+  },
+  getVault() {
+    return tx('vault', 'readonly', (s) => s.get('data')).then((r) => r?.data ?? null)
+  },
+  queueVaultWrite(op) {
+    return tx('vaultWriteQueue', 'readwrite', (s) => s.add(op))
+  },
+  getVaultWriteQueue() {
+    return openDB().then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const t = db.transaction('vaultWriteQueue', 'readonly')
+          const req = t.objectStore('vaultWriteQueue').getAll()
+          req.onsuccess = (e) => resolve(e.target.result)
+          req.onerror = (e) => reject(e.target.error)
+        })
+    )
+  },
+  clearVaultWriteQueue() {
+    return openDB().then(
+      (db) =>
+        new Promise((resolve, reject) => {
+          const t = db.transaction('vaultWriteQueue', 'readwrite')
+          const req = t.objectStore('vaultWriteQueue').clear()
+          req.onsuccess = () => resolve()
+          req.onerror = (e) => reject(e.target.error)
+        })
+    )
+  },
+  async hasQueuedVaultWrites() {
+    const queue = await this.getVaultWriteQueue()
+    return queue.length > 0
   },
 }

@@ -267,12 +267,13 @@ export default function CalendarPage() {
     return () => navigator.serviceWorker.removeEventListener('message', handler)
   }, [fetchWeek])
 
-  // Sync write queue when coming back online
+  // Auto-sync when online — fires on reconnect AND when hasQueuedWrites first becomes true
+  // after a fresh load while already online (covers app-restart-while-online case)
   useEffect(() => {
-    if (isOnline && hasQueuedWrites) {
+    if (isOnline && hasQueuedWrites && !syncLoading) {
       syncOfflineQueue()
     }
-  }, [isOnline]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isOnline, hasQueuedWrites]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Prime SW cache for offline meal picker — fetch meals + family whenever online
   useEffect(() => {
@@ -623,18 +624,8 @@ export default function CalendarPage() {
 
       {/* Pending sync banner */}
       {isOnline && hasQueuedWrites && (
-        <div className="mb-4 px-4 py-2.5 bg-amber-50 border border-amber-300 rounded-xl text-sm flex items-center justify-between">
-          <span className="text-amber-800">
-            {syncLoading ? '⏳ Syncing offline changes…' : '⚠️ You have offline changes waiting to sync.'}
-          </span>
-          {!syncLoading && (
-            <button
-              onClick={syncOfflineQueue}
-              className="ml-4 px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold rounded-full transition-colors"
-            >
-              Sync now
-            </button>
-          )}
+        <div className="mb-4 px-4 py-2.5 bg-amber-50 border border-amber-300 rounded-xl text-sm text-amber-800">
+          {syncLoading ? '⏳ Syncing offline changes…' : '⏳ Syncing offline changes…'}
         </div>
       )}
 
