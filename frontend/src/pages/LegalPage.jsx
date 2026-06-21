@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext'
 
 export default function LegalPage() {
   const { user } = useAuth()
-  const updated = 'June 18, 2026'
+  const updated = 'June 21, 2026'
 
   return (
     <div className="min-h-screen bg-gray-50 pb-16">
@@ -141,6 +141,15 @@ export default function LegalPage() {
               preferences, weight entries, and vault entries) to provide its core functionality.
               This data is stored on third-party hosting infrastructure and is not sold or shared
               with any third party for commercial purposes.
+            </p>
+            <p className="mb-2">
+              <strong>Invite emails:</strong> When an existing user generates an invite code and
+              chooses to send it to someone by email, the recipient's email address is stored
+              temporarily alongside that invite code. If the code is not used within{' '}
+              <strong>30 days</strong>, the email address is automatically and permanently deleted
+              from our records. The invite code itself remains valid after the email address is
+              removed and may still be used to register. Invite emails are one-time transactional
+              messages sent on behalf of the inviting user and are never used for marketing purposes.
             </p>
             <p>
               However, the creator makes no guarantees regarding the security, confidentiality, or

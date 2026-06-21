@@ -98,10 +98,11 @@ export default function ProfilePage() {
   const [saved, setSaved] = useState(false)
 
   // invite state
-  const [inviteCode, setInviteCode] = useState('')
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [codeList, setCodeList] = useState([])
   const [generatingInvite, setGeneratingInvite] = useState(false)
   const [inviteError, setInviteError] = useState('')
-  const [copied, setCopied] = useState(false)
+  const [copiedCode, setCopiedCode] = useState(null)
 
   // weight tracker state
   const [history, setHistory] = useState([])
@@ -133,6 +134,7 @@ export default function ProfilePage() {
       setNewDate(todayISO(data.timezone || undefined))
     })
     api.get('/weight').then(({ data }) => setHistory(data))
+    api.get('/invite/my-codes').then(({ data }) => setCodeList(Array.isArray(data) ? data : [])).catch(() => {})
   }, [])
 
   // Issue #3/4: effective timezone — stored preference falls back to browser's detected zone
@@ -253,11 +255,12 @@ export default function ProfilePage() {
   const handleGenerateInvite = async () => {
     setGeneratingInvite(true)
     setInviteError('')
-    setInviteCode('')
-    setCopied(false)
     try {
-      const { data } = await api.post('/invite/generate')
-      setInviteCode(data.code)
+      const payload = inviteEmail ? { email: inviteEmail } : {}
+      await api.post('/invite/generate', payload)
+      setInviteEmail('')
+      const { data } = await api.get('/invite/my-codes')
+      setCodeList(Array.isArray(data) ? data : [])
     } catch (err) {
       setInviteError(err.response?.data?.detail || 'Failed to generate invite code')
     } finally {
@@ -265,10 +268,10 @@ export default function ProfilePage() {
     }
   }
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(inviteCode).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+  const handleCopyCode = (code) => {
+    navigator.clipboard.writeText(code).then(() => {
+      setCopiedCode(code)
+      setTimeout(() => setCopiedCode(null), 2000)
     })
   }
 
@@ -372,31 +375,56 @@ export default function ProfilePage() {
       {!profile.is_guest && (
         <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm mt-6">
           <h2 className="font-semibold text-gray-700 mb-1">Invite a Friend</h2>
-          <p className="text-xs text-gray-400 mb-4">Generate a single-use code to share with someone you'd like to invite.</p>
-          <button
-            onClick={handleGenerateInvite}
-            disabled={generatingInvite}
-            className="px-5 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-xl transition-colors disabled:opacity-60"
-          >
-            {generatingInvite ? 'Generating…' : 'Generate Invite Code'}
-          </button>
+          <p className="text-xs text-gray-400 mb-4">
+            Generate a single-use invite code. Optionally add an email to send it directly.
+          </p>
+          <div className="flex gap-2">
+            <input
+              type="email"
+              value={inviteEmail}
+              onChange={e => setInviteEmail(e.target.value)}
+              placeholder="friend@example.com (optional)"
+              className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+            />
+            <button
+              onClick={handleGenerateInvite}
+              disabled={generatingInvite}
+              className="px-5 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-xl transition-colors disabled:opacity-60 whitespace-nowrap"
+            >
+              {generatingInvite ? 'Generating…' : inviteEmail ? 'Send Invite' : 'Generate Code'}
+            </button>
+          </div>
           {inviteError && (
             <p className="mt-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">{inviteError}</p>
           )}
-          {inviteCode && (
-            <div className="mt-3 flex items-center gap-2">
-              <input
-                type="text"
-                readOnly
-                value={inviteCode}
-                className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm font-mono bg-gray-50 text-gray-700 focus:outline-none"
-              />
-              <button
-                onClick={handleCopy}
-                className="px-4 py-2 text-sm font-medium rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 transition-colors whitespace-nowrap"
-              >
-                {copied ? 'Copied!' : 'Copy'}
-              </button>
+          {codeList.length > 0 && (
+            <div className="mt-4 border-t border-gray-100 pt-4">
+              <p className="text-xs font-medium text-gray-500 mb-2">Your invite codes</p>
+              <div className="space-y-2">
+                {codeList.map(item => (
+                  <div key={item.code} className="flex items-center gap-2 text-sm min-w-0">
+                    <span className={`font-mono shrink-0 ${item.used ? 'line-through text-gray-400' : 'text-gray-800'}`}>
+                      {item.code}
+                    </span>
+                    {item.used ? (
+                      <span className="text-xs bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full shrink-0">Used</span>
+                    ) : (
+                      <button
+                        onClick={() => handleCopyCode(item.code)}
+                        className="text-xs text-gray-500 bg-gray-100 hover:bg-gray-200 px-2 py-0.5 rounded-full transition-colors shrink-0"
+                      >
+                        {copiedCode === item.code ? 'Copied!' : 'Copy'}
+                      </button>
+                    )}
+                    {item.sent_to_email && (
+                      <span className="text-xs text-gray-400 truncate min-w-0">&rarr; {item.sent_to_email}</span>
+                    )}
+                    <span className="ml-auto text-xs text-gray-400 shrink-0">
+                      {new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

@@ -40,6 +40,9 @@ class InviteCode(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     used = Column(Boolean, default=False)
     used_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    sent_to_email = Column(String, nullable=True)
+    email_sent_at = Column(DateTime, nullable=True)
 
 
 class FamilyGroup(Base):
