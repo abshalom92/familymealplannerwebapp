@@ -103,6 +103,8 @@ export default function ProfilePage() {
   const [generatingInvite, setGeneratingInvite] = useState(false)
   const [inviteError, setInviteError] = useState('')
   const [copiedCode, setCopiedCode] = useState(null)
+  const [resendingCode, setResendingCode] = useState(null)
+  const [resentCode, setResentCode] = useState(null)
 
   // weight tracker state
   const [history, setHistory] = useState([])
@@ -268,6 +270,19 @@ export default function ProfilePage() {
     }
   }
 
+  const handleResend = async (code) => {
+    setResendingCode(code)
+    try {
+      await api.post(`/invite/resend/${code}`)
+      setResentCode(code)
+      setTimeout(() => setResentCode(null), 2000)
+    } catch {
+      // silently fail — backend rate limit or missing email
+    } finally {
+      setResendingCode(null)
+    }
+  }
+
   const handleCopyCode = (code) => {
     navigator.clipboard.writeText(code).then(() => {
       setCopiedCode(code)
@@ -417,7 +432,18 @@ export default function ProfilePage() {
                       </button>
                     )}
                     {item.sent_to_email && (
-                      <span className="text-xs text-gray-400 truncate min-w-0">&rarr; {item.sent_to_email}</span>
+                      <>
+                        <span className="text-xs text-gray-400 truncate min-w-0">&rarr; {item.sent_to_email}</span>
+                        {!item.used && (
+                          <button
+                            onClick={() => handleResend(item.code)}
+                            disabled={resendingCode === item.code}
+                            className="text-xs text-green-600 hover:underline disabled:opacity-50 shrink-0"
+                          >
+                            {resentCode === item.code ? 'Sent!' : resendingCode === item.code ? '…' : '(Resend)'}
+                          </button>
+                        )}
+                      </>
                     )}
                     <span className="ml-auto text-xs text-gray-400 shrink-0">
                       {new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}

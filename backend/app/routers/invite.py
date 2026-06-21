@@ -112,6 +112,28 @@ async def generate_invite(
     return {"code": code}
 
 
+@router.post("/resend/{code}")
+@limiter.limit("5/hour")
+async def resend_invite(
+    request: Request,
+    code: str,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    if current_user.is_guest:
+        raise HTTPException(status_code=403, detail="Guests cannot resend invite codes")
+    invite = db.query(models.InviteCode).filter_by(code=code, created_by_id=current_user.id).first()
+    if not invite:
+        raise HTTPException(status_code=404, detail="Invite code not found")
+    if invite.used:
+        raise HTTPException(status_code=400, detail="This invite code has already been used")
+    if not invite.sent_to_email:
+        raise HTTPException(status_code=400, detail="No email address on record for this code")
+    background_tasks.add_task(_send_invite_email, invite.sent_to_email, code)
+    return {"ok": True}
+
+
 @router.get("/my-codes")
 async def my_codes(
     db: Session = Depends(get_db),
