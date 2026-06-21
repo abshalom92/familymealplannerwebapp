@@ -88,11 +88,11 @@ export default function VaultPage() {
     setLoading(true)
     try {
       const { data } = await api.get('/vault')
-      setEntries(data)
+      setEntries(Array.isArray(data) ? data : [])
       offlineDB.cacheVault(data)
     } catch {
       const cached = await offlineDB.getVault()
-      if (cached) setEntries(cached)
+      if (cached) setEntries(Array.isArray(cached) ? cached : [])
     } finally {
       setLoading(false)
     }
