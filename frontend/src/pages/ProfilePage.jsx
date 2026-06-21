@@ -440,7 +440,7 @@ export default function ProfilePage() {
                             disabled={resendingCode === item.code}
                             className="text-xs text-green-600 hover:underline disabled:opacity-50 shrink-0"
                           >
-                            {resentCode === item.code ? 'Sent!' : resendingCode === item.code ? '…' : '(Resend)'}
+                            {resentCode === item.code ? '(Email successfully sent!)' : resendingCode === item.code ? '(Sending…)' : '(Resend Invite)'}
                           </button>
                         )}
                       </>
