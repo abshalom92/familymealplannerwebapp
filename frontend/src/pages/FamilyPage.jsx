@@ -342,7 +342,7 @@ function FamilyGroupPanel() {
         setGroup(data)
         const me = data.members.find(m => m.username === user?.username)
         if (me?.is_head) {
-          api.get('/group/pending').then(({ data: p }) => setPending(p)).catch(() => setPending([]))
+          api.get('/group/pending').then(({ data: p }) => setPending(Array.isArray(p) ? p : [])).catch(() => setPending([]))
         }
       })
       .catch(() => { setGroup(null); setPending([]) })
@@ -724,7 +724,7 @@ export default function FamilyPage() {
   const [showAdd, setShowAdd] = useState(false)
   const [editingId, setEditingId] = useState(null)
 
-  const load = () => api.get('/family/').then((r) => setMembers(r.data))
+  const load = () => api.get('/family/').then((r) => setMembers(Array.isArray(r.data) ? r.data : [])).catch(() => {})
 
   useEffect(() => { load() }, [])
 
