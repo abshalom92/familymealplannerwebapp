@@ -46,7 +46,7 @@ def _send_invite_email(to_email: str, code: str) -> None:
     api_key = os.getenv("RESEND_API_KEY")
     if not api_key:
         return
-    from_addr = os.getenv("INVITE_FROM_EMAIL", "noreply@example.com")
+    from_addr = os.getenv("INVITE_FROM_EMAIL", "onboarding@resend.dev")
     app_url = os.getenv("APP_URL", "https://familymealplannerwebapp.vercel.app")
     payload = _json.dumps({
         "from": f"Family Meal Planner <{from_addr}>",
