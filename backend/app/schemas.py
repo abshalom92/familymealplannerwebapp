@@ -199,6 +199,7 @@ class ProfileOut(BaseModel):
     age: Optional[int] = None
     weight_lbs: Optional[float] = None
     timezone: Optional[str] = None
+    is_guest: bool = False
 
     class Config:
         from_attributes = True
