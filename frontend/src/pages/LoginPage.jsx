@@ -34,7 +34,8 @@ export default function LoginPage() {
       }
       navigate('/dashboard')
     } catch (err) {
-      setError(err.response?.data?.detail || 'Something went wrong')
+      const detail = err.response?.data?.detail
+      setError(Array.isArray(detail) ? detail.map(e => e.msg).join(', ') : (detail || 'Something went wrong'))
     } finally {
       setLoading(false)
     }
