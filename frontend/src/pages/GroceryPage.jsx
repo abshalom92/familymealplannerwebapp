@@ -38,7 +38,14 @@ const CATEGORY_COLORS = {
 
 export default function GroceryPage() {
   const isOnline = useOnlineStatus()
-  const [weekStart, setWeekStart] = useState(() => getMondayOfWeek(new Date()))
+  const [weekStart, setWeekStart] = useState(() => {
+    const saved = localStorage.getItem('active-week')
+    if (saved) {
+      const d = new Date(saved + 'T00:00:00')
+      if (!isNaN(d.getTime())) return d
+    }
+    return getMondayOfWeek(new Date())
+  })
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(false)
   const [checked, setChecked] = useState({})

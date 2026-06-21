@@ -105,6 +105,11 @@ export default function CalendarPage() {
   const isOnline = useOnlineStatus()
 
   const [weekStart, setWeekStart] = useState(() => getMondayOfWeek(new Date()))
+
+  useEffect(() => {
+    localStorage.setItem('active-week', formatDate(weekStart))
+  }, [weekStart])
+
   const [mealPlan, setMealPlan] = useState([])
   const [viewMealId, setViewMealId] = useState(null)
   const [viewMealData, setViewMealData] = useState(null)
