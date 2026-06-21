@@ -66,6 +66,8 @@ export default function VaultPage() {
 
   // Add-entry form state
   const [meals, setMeals] = useState([])
+  const [mealsLoading, setMealsLoading] = useState(false)
+  const [mealsError, setMealsError] = useState(false)
   const [mealSearch, setMealSearch] = useState('')
   const [selectedMeal, setSelectedMeal] = useState(null)
   const [storageMethod, setStorageMethod] = useState('refrigerated')
@@ -132,7 +134,12 @@ export default function VaultPage() {
 
   useEffect(() => {
     if (showAdd) {
-      api.get('/meals/').then(({ data }) => setMeals(Array.isArray(data) ? data : [])).catch(() => {})
+      setMealsLoading(true)
+      setMealsError(false)
+      api.get('/meals/')
+        .then(({ data }) => setMeals(Array.isArray(data) ? data : []))
+        .catch(() => setMealsError(true))
+        .finally(() => setMealsLoading(false))
     }
   }, [showAdd])
 
@@ -423,9 +430,15 @@ export default function VaultPage() {
                     onChange={e => setMealSearch(e.target.value)}
                     className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
                   />
-                  {mealSearch.length > 0 && (
-                    <div className="mt-1 max-h-44 overflow-y-auto border border-gray-200 rounded-xl bg-white shadow-md">
-                      {filteredMeals.slice(0, 8).map(m => (
+                  <div className="mt-1 max-h-44 overflow-y-auto border border-gray-200 rounded-xl bg-white shadow-md">
+                    {mealsLoading ? (
+                      <p className="px-3 py-2 text-sm text-gray-400">Loading meals…</p>
+                    ) : mealsError ? (
+                      <p className="px-3 py-2 text-sm text-red-500">Failed to load meals — please close and try again</p>
+                    ) : filteredMeals.length === 0 ? (
+                      <p className="px-3 py-2 text-sm text-gray-400">No meals found</p>
+                    ) : (
+                      filteredMeals.slice(0, 8).map(m => (
                         <button
                           key={m.id}
                           onClick={() => { setSelectedMeal(m); setMealSearch('') }}
@@ -433,12 +446,9 @@ export default function VaultPage() {
                         >
                           {m.name}
                         </button>
-                      ))}
-                      {filteredMeals.length === 0 && (
-                        <p className="px-3 py-2 text-sm text-gray-400">No meals found</p>
-                      )}
-                    </div>
-                  )}
+                      ))
+                    )}
+                  </div>
                 </div>
               )}
             </div>
