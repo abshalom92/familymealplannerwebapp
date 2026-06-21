@@ -40,6 +40,7 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
     localStorage.removeItem('guestLoginTime')
+    localStorage.removeItem('active-week')
     setUser(null)
   }
 

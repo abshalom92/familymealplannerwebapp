@@ -104,7 +104,14 @@ export default function CalendarPage() {
   const { user } = useAuth()
   const isOnline = useOnlineStatus()
 
-  const [weekStart, setWeekStart] = useState(() => getMondayOfWeek(new Date()))
+  const [weekStart, setWeekStart] = useState(() => {
+    const saved = localStorage.getItem('active-week')
+    if (saved) {
+      const d = new Date(saved + 'T00:00:00')
+      if (!isNaN(d.getTime())) return d
+    }
+    return getMondayOfWeek(new Date())
+  })
 
   useEffect(() => {
     localStorage.setItem('active-week', formatDate(weekStart))
