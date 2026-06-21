@@ -19,7 +19,7 @@ export function AuthProvider({ children }) {
   }
 
   const register = async (username, email, password, inviteCode) => {
-    const { data } = await api.post('/auth/register', { username, email, password, invite_code: inviteCode })
+    const { data } = await api.post('/auth/register', { username, email: email || null, password, invite_code: inviteCode })
     localStorage.setItem('token', data.access_token)
     localStorage.setItem('user', JSON.stringify({ username: data.username, isGuest: data.is_guest }))
     offlineDB.saveToken(data.access_token)
