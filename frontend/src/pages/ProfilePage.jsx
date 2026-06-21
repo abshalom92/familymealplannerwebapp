@@ -97,6 +97,12 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
+  // password change state
+  const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' })
+  const [pwSaving, setPwSaving] = useState(false)
+  const [pwSaved, setPwSaved] = useState(false)
+  const [pwError, setPwError] = useState('')
+
   // invite state
   const [inviteEmail, setInviteEmail] = useState('')
   const [codeList, setCodeList] = useState([])
@@ -124,6 +130,7 @@ export default function ProfilePage() {
       setForm({
         first_name: data.first_name ?? '',
         last_name: data.last_name ?? '',
+        email: data.email ?? '',
         age: data.age ?? '',
         calorie_goal: data.calorie_goal ?? '',
         protein_goal_g: data.protein_goal_g ?? '',
@@ -154,6 +161,7 @@ export default function ProfilePage() {
       const payload = {
         first_name: form.first_name || null,
         last_name: form.last_name || null,
+        email: form.email || null,
         age: form.age ? parseInt(form.age) : null,
         calorie_goal: form.calorie_goal ? parseInt(form.calorie_goal) : null,
         protein_goal_g: form.protein_goal_g ? parseInt(form.protein_goal_g) : null,
@@ -167,6 +175,37 @@ export default function ProfilePage() {
       setSaved(true)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const pwChecks = {
+    length:    pwForm.next.length >= 8,
+    uppercase: /[A-Z]/.test(pwForm.next),
+    number:    /[0-9]/.test(pwForm.next),
+    special:   /[!@#$%^&*()_+\-=\[\]{}|;:,.<>?]/.test(pwForm.next),
+  }
+  const pwValid = Object.values(pwChecks).every(Boolean)
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault()
+    if (pwForm.next !== pwForm.confirm) {
+      setPwError('New passwords do not match')
+      return
+    }
+    setPwSaving(true)
+    setPwError('')
+    try {
+      await api.post('/profile/change-password', {
+        current_password: pwForm.current,
+        new_password: pwForm.next,
+      })
+      setPwSaved(true)
+      setPwForm({ current: '', next: '', confirm: '' })
+      setTimeout(() => setPwSaved(false), 3000)
+    } catch (err) {
+      setPwError(err.response?.data?.detail || 'Failed to change password')
+    } finally {
+      setPwSaving(false)
     }
   }
 
@@ -339,13 +378,7 @@ export default function ProfilePage() {
             </div>
           </div>
           <div className="mt-4">
-            <label className="block text-sm font-medium text-gray-600 mb-1">Email</label>
-            <input
-              type="text"
-              value={profile.email ?? '—'}
-              disabled
-              className="w-full border border-gray-100 rounded-xl px-3 py-2 text-sm text-gray-400 bg-gray-50 cursor-not-allowed"
-            />
+            <Field label="Email" name="email" value={form.email} onChange={handleChange} type="email" placeholder="you@example.com" />
           </div>
         </div>
 
@@ -385,6 +418,75 @@ export default function ProfilePage() {
           {saved && <span className="text-sm text-green-600 font-medium">Saved!</span>}
         </div>
       </form>
+
+      {/* Change Password */}
+      {!profile.is_guest && (
+        <form onSubmit={handleChangePassword} className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm mt-6">
+          <h2 className="font-semibold text-gray-700 mb-4">Change Password</h2>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">Current Password</label>
+              <input
+                type="password"
+                required
+                value={pwForm.current}
+                onChange={e => setPwForm(p => ({ ...p, current: e.target.value }))}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+                placeholder="••••••••"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">New Password</label>
+              <input
+                type="password"
+                required
+                value={pwForm.next}
+                onChange={e => setPwForm(p => ({ ...p, next: e.target.value }))}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+                placeholder="••••••••"
+              />
+              {pwForm.next.length > 0 && (
+                <ul className="mt-2 space-y-1">
+                  {[
+                    [pwChecks.length,    '8+ characters'],
+                    [pwChecks.uppercase, 'One uppercase letter'],
+                    [pwChecks.number,    'One number'],
+                    [pwChecks.special,   'One special character (!@#$%^&*...)'],
+                  ].map(([ok, label]) => (
+                    <li key={label} className={`flex items-center gap-1.5 text-xs ${ok ? 'text-green-600' : 'text-gray-400'}`}>
+                      <span>{ok ? '✓' : '○'}</span> {label}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">Confirm New Password</label>
+              <input
+                type="password"
+                required
+                value={pwForm.confirm}
+                onChange={e => setPwForm(p => ({ ...p, confirm: e.target.value }))}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
+                placeholder="••••••••"
+              />
+            </div>
+          </div>
+          {pwError && (
+            <p className="mt-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">{pwError}</p>
+          )}
+          <div className="mt-4 flex items-center gap-3">
+            <button
+              type="submit"
+              disabled={pwSaving || !pwValid || !pwForm.current}
+              className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-xl transition-colors disabled:opacity-60"
+            >
+              {pwSaving ? 'Saving…' : 'Change Password'}
+            </button>
+            {pwSaved && <span className="text-sm text-green-600 font-medium">Password changed!</span>}
+          </div>
+        </form>
+      )}
 
       {/* Invite a Friend */}
       {!profile.is_guest && (

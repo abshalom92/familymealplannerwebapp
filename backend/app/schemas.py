@@ -208,6 +208,7 @@ class ProfileOut(BaseModel):
 class ProfileUpdate(BaseModel):
     first_name: Optional[str] = Field(None, max_length=50)
     last_name: Optional[str] = Field(None, max_length=50)
+    email: Optional[EmailStr] = None
     calorie_goal: Optional[int] = Field(None, ge=0, le=20000)
     protein_goal_g: Optional[int] = Field(None, ge=0, le=1000)
     carbs_goal_g: Optional[int] = Field(None, ge=0, le=2000)
@@ -216,6 +217,11 @@ class ProfileUpdate(BaseModel):
     age: Optional[int] = Field(None, ge=0, le=150)
     weight_lbs: Optional[float] = Field(None, ge=0, le=2000)
     timezone: Optional[str] = Field(None, max_length=64)
+
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=8)
 
 
 class FamilyMemberCreate(BaseModel):
