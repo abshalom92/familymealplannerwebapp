@@ -137,8 +137,14 @@ export default function VaultPage() {
       setMealsLoading(true)
       setMealsError(false)
       api.get('/meals/')
-        .then(({ data }) => setMeals(Array.isArray(data) ? data : []))
-        .catch(() => setMealsError(true))
+        .then(({ data }) => {
+          console.log('[vault] meals response:', typeof data, Array.isArray(data), Array.isArray(data) ? data.length : data)
+          setMeals(Array.isArray(data) ? data : [])
+        })
+        .catch((err) => {
+          console.error('[vault] meals error:', err?.response?.status, err?.message)
+          setMealsError(true)
+        })
         .finally(() => setMealsLoading(false))
     }
   }, [showAdd])
