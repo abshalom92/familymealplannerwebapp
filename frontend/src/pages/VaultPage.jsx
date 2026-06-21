@@ -132,7 +132,7 @@ export default function VaultPage() {
 
   useEffect(() => {
     if (showAdd) {
-      api.get('/meals/').then(({ data }) => setMeals(data)).catch(() => {})
+      api.get('/meals/').then(({ data }) => setMeals(Array.isArray(data) ? data : [])).catch(() => {})
     }
   }, [showAdd])
 
