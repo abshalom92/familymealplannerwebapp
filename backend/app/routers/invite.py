@@ -60,6 +60,7 @@ def _sender_display(user: models.User) -> str:
 
 
 def _send_invite_email(to_email: str, code: str, sender_display: str) -> None:
+    to_email = to_email.lower()
     api_key = os.getenv("RESEND_API_KEY")
     if not api_key:
         logger.error("[invite] RESEND_API_KEY not set — cannot send invite to %s", to_email)
