@@ -22,8 +22,8 @@ export default function MealPickerModal({ slot, weekStart, onClose, onSelect, re
   const [mealsError, setMealsError] = useState(false)
 
   useEffect(() => {
-    api.get('/family/').then((r) => setFamilyMembers(r.data)).catch(() => {})
-    api.get('/meals/').then((r) => setMeals(r.data)).catch(() => setMealsError(true))
+    api.get('/family/').then((r) => setFamilyMembers(Array.isArray(r.data) ? r.data : [])).catch(() => {})
+    api.get('/meals/').then((r) => setMeals(Array.isArray(r.data) ? r.data : [])).catch(() => setMealsError(true))
   }, [])
 
   // Build allergen set from ALL family members (9b)
