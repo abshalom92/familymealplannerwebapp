@@ -10,6 +10,7 @@ import ProfilePage from './pages/ProfilePage'
 import InboxPage from './pages/InboxPage'
 import VaultPage from './pages/VaultPage'
 import LegalPage from './pages/LegalPage'
+import FeedbackPage from './pages/FeedbackPage'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
 import GuestPromptModal from './components/GuestPromptModal'
@@ -33,6 +34,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={user ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
       <Route path="/legal"     element={<LegalPage />} />
+      <Route path="/feedback"  element={<FeedbackPage />} />
       <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
       <Route path="/calendar"  element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
       <Route path="/grocery"   element={<ProtectedRoute><GroceryPage /></ProtectedRoute>} />
