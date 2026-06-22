@@ -46,14 +46,12 @@ def _wipe_stale_emails(db: Session, user_id: int) -> bool:
 
 
 def _send_invite_email(to_email: str, code: str) -> None:
-    logger.warning("[invite] _send_invite_email called for %s", to_email)
     api_key = os.getenv("RESEND_API_KEY")
     if not api_key:
         logger.error("[invite] RESEND_API_KEY not set — cannot send invite to %s", to_email)
         return
     from_addr = os.getenv("INVITE_FROM_EMAIL", "onboarding@resend.dev")
     app_url = os.getenv("APP_URL", "https://familymealplannerwebapp.vercel.app")
-    logger.warning("[invite] sending invite to %s from %s", to_email, from_addr)
     payload = _json.dumps({
         "from": f"Family Meal Planner <{from_addr}>",
         "to": [to_email],
@@ -87,8 +85,7 @@ def _send_invite_email(to_email: str, code: str) -> None:
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=5) as resp:
-            logger.warning("[invite] Resend accepted (status %s) for %s", resp.status, to_email)
+        urllib.request.urlopen(req, timeout=5)
     except urllib.error.HTTPError as e:
         body = e.read().decode("utf-8", errors="replace")
         logger.error("[invite] Resend rejected (status %s) for %s: %s", e.code, to_email, body)
