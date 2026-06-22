@@ -142,7 +142,7 @@ export default function ProfilePage() {
       // Sync the date input to the user's saved timezone
       setNewDate(todayISO(data.timezone || undefined))
     })
-    api.get('/weight').then(({ data }) => setHistory(data))
+    api.get('/weight').then(({ data }) => setHistory(Array.isArray(data) ? data : []))
     api.get('/invite/my-codes').then(({ data }) => setCodeList(Array.isArray(data) ? data : [])).catch(() => {})
   }, [])
 

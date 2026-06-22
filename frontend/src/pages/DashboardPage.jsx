@@ -113,15 +113,15 @@ export default function DashboardPage() {
         const hoh = me?.is_head ?? false
         setIsHoH(hoh)
         setInGroup(true)
-        api.get('/vault/expiring').then(({ data }) => setVaultExpiringCount(data.length)).catch(() => {})
+        api.get('/vault/expiring').then(({ data }) => setVaultExpiringCount(Array.isArray(data) ? data.length : 0)).catch(() => {})
         const ws = formatDate(getMondayOfWeek(new Date()))
         if (hoh) {
-          api.get('/group/pending').then(({ data: p }) => setPendingCount(p.length)).catch(() => {})
+          api.get('/group/pending').then(({ data: p }) => setPendingCount(Array.isArray(p) ? p.length : 0)).catch(() => {})
           api.get('/meal-requests/pending', { params: { week_start: ws } })
-            .then(({ data }) => setMealReqPending(data)).catch(() => {})
+            .then(({ data }) => setMealReqPending(Array.isArray(data) ? data : [])).catch(() => {})
         } else if (me) {
           api.get('/meal-requests', { params: { week_start: ws } })
-            .then(({ data }) => setMyMealRequests(data.filter(r => r.status === 'pending'))).catch(() => {})
+            .then(({ data }) => setMyMealRequests(Array.isArray(data) ? data.filter(r => r.status === 'pending') : [])).catch(() => {})
         }
       }).catch(() => { setInGroup(false); setIsHoH(false) })
     }

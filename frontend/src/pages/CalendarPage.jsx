@@ -249,11 +249,11 @@ export default function CalendarPage() {
     const ws = formatDate(weekStart)
     if (isHoH) {
       api.get('/meal-requests/pending', { params: { week_start: ws } })
-        .then((r) => setPendingRequests(r.data))
+        .then((r) => setPendingRequests(Array.isArray(r.data) ? r.data : []))
         .catch(() => {})
     } else {
       api.get('/meal-requests', { params: { week_start: ws } })
-        .then((r) => setMyRequests(r.data.filter((req) => req.status === 'pending')))
+        .then((r) => setMyRequests(Array.isArray(r.data) ? r.data.filter((req) => req.status === 'pending') : []))
         .catch(() => {})
     }
   }, [weekStart, isHoH, inGroup, groupLoaded])
