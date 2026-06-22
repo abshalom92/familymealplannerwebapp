@@ -122,16 +122,17 @@ async def generate_invite(
     code = secrets.token_urlsafe(8)
     while db.query(models.InviteCode).filter_by(code=code).first():
         code = secrets.token_urlsafe(8)
+    normalized_email = body.email.lower() if body.email else None
     invite = models.InviteCode(
         code=code,
         created_by_id=current_user.id,
-        sent_to_email=body.email,
-        email_sent_at=datetime.utcnow() if body.email else None,
+        sent_to_email=normalized_email,
+        email_sent_at=datetime.utcnow() if normalized_email else None,
     )
     db.add(invite)
     db.commit()
-    if body.email:
-        background_tasks.add_task(_send_invite_email, body.email, code, _sender_display(current_user))
+    if normalized_email:
+        background_tasks.add_task(_send_invite_email, normalized_email, code, _sender_display(current_user))
     return {"code": code}
 
 
