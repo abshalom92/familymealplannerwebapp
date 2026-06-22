@@ -1,3 +1,4 @@
+import html
 import logging
 import os
 import secrets
@@ -45,7 +46,20 @@ def _wipe_stale_emails(db: Session, user_id: int) -> bool:
     return len(rows) > 0
 
 
-def _send_invite_email(to_email: str, code: str) -> None:
+def _sender_display(user: models.User) -> str:
+    name_parts = [p for p in (user.first_name, user.last_name) if p]
+    name = " ".join(name_parts).strip()
+    username = user.username or ""
+    if name and username:
+        return f"{html.escape(name)} (@{html.escape(username)})"
+    if name:
+        return html.escape(name)
+    if username:
+        return f"@{html.escape(username)}"
+    return "A friend"
+
+
+def _send_invite_email(to_email: str, code: str, sender_display: str) -> None:
     api_key = os.getenv("RESEND_API_KEY")
     if not api_key:
         logger.error("[invite] RESEND_API_KEY not set — cannot send invite to %s", to_email)
@@ -59,7 +73,7 @@ def _send_invite_email(to_email: str, code: str) -> None:
         "html": f"""
 <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px">
   <h2 style="color:#15803d;margin-bottom:8px">You're invited!</h2>
-  <p style="color:#374151">A friend has invited you to join <strong>Family Meal Planner</strong> — a private app
+  <p style="color:#374151">{sender_display} has invited you to join <strong>Family Meal Planner</strong> — a private app
   for planning weekly meals, tracking groceries, and coordinating with your household.</p>
   <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:20px;text-align:center;margin:24px 0">
     <p style="margin:0 0 8px;color:#6b7280;font-size:12px">Your invite code</p>
@@ -117,7 +131,7 @@ async def generate_invite(
     db.add(invite)
     db.commit()
     if body.email:
-        background_tasks.add_task(_send_invite_email, body.email, code)
+        background_tasks.add_task(_send_invite_email, body.email, code, _sender_display(current_user))
     return {"code": code}
 
 
@@ -139,7 +153,7 @@ async def resend_invite(
         raise HTTPException(status_code=400, detail="This invite code has already been used")
     if not invite.sent_to_email:
         raise HTTPException(status_code=400, detail="No email address on record for this code")
-    background_tasks.add_task(_send_invite_email, invite.sent_to_email, code)
+    background_tasks.add_task(_send_invite_email, invite.sent_to_email, code, _sender_display(current_user))
     return {"ok": True}
 
 
