@@ -81,6 +81,8 @@ def _send_invite_email(to_email: str, code: str) -> None:
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
+            "User-Agent": "FamilyMealPlanner/1.0 (+https://familymealplannerwebapp.vercel.app)",
+            "Accept": "application/json",
         },
         method="POST",
     )
