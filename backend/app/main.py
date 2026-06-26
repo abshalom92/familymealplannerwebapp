@@ -3,9 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from .database import engine, Base, SessionLocal
-from .routers import auth, meals, calendar, grocery, family, household, profile, group, admin, weight, requests as meal_requests_router, inbox, vault, invite, feedback
+from .routers import auth, meals, calendar, grocery, family, household, profile, group, admin, weight, requests as meal_requests_router, inbox, vault, invite, feedback, badges
 from .limiter import limiter
 from .seed_data import seed_meals
+from .routers.badges import seed_badges
 import os
 
 Base.metadata.create_all(bind=engine)
@@ -51,6 +52,7 @@ app.include_router(inbox.router, prefix="/api/inbox", tags=["inbox"])
 app.include_router(vault.router, prefix="/api/vault", tags=["vault"])
 app.include_router(invite.router, prefix="/api/invite", tags=["invite"])
 app.include_router(feedback.router, prefix="/api/feedback", tags=["feedback"])
+app.include_router(badges.router, prefix="/api/badges", tags=["badges"])
 
 
 @app.on_event("startup")
@@ -58,6 +60,7 @@ def startup_event():
     db = SessionLocal()
     try:
         seed_meals(db)
+        seed_badges(db)
     finally:
         db.close()
 

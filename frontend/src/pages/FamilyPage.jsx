@@ -719,6 +719,56 @@ function HouseholdSizePanel() {
   )
 }
 
+function FamilyBadgesPanel() {
+  const [badges, setBadges] = useState(null)
+
+  useEffect(() => {
+    api.get('/badges').then(({ data }) => setBadges(data)).catch(() => {})
+  }, [])
+
+  if (!badges || (!badges.family_badges?.length && !badges.personal_badges?.length)) return null
+
+  const allBadges = [
+    ...badges.family_badges.map(b => ({ ...b, scope: 'family' })),
+    ...badges.personal_badges.map(b => ({ ...b, scope: 'personal' })),
+  ].sort((a, b) => new Date(b.earned_at) - new Date(a.earned_at))
+
+  if (!allBadges.length) return null
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm mb-8">
+      <div className="flex items-center gap-2 mb-4">
+        <span className="text-xl">🏅</span>
+        <div>
+          <h2 className="font-semibold text-gray-800">Family Achievements</h2>
+          <p className="text-xs text-gray-500">{allBadges.length} badge{allBadges.length !== 1 ? 's' : ''} earned</p>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {allBadges.map(b => (
+          <div
+            key={`${b.scope}-${b.id}`}
+            title={`${b.description}\nEarned ${new Date(b.earned_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`}
+            className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium border ${
+              b.scope === 'family'
+                ? 'bg-amber-50 border-amber-200 text-amber-800'
+                : 'bg-blue-50 border-blue-200 text-blue-800'
+            }`}
+          >
+            <span className="text-base leading-none">{b.icon}</span>
+            <div>
+              <p className="font-semibold leading-tight">{b.name}</p>
+              <p className="text-[10px] opacity-70 leading-tight">
+                {b.scope === 'family' ? 'Family' : 'Personal'} &middot; {new Date(b.earned_at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function FamilyPage() {
   const [members, setMembers] = useState([])
   const [showAdd, setShowAdd] = useState(false)
@@ -748,6 +798,7 @@ export default function FamilyPage() {
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       <FamilyGroupPanel />
+      <FamilyBadgesPanel />
       <HouseholdSizePanel />
 
       <div className="flex items-center justify-between mb-6">

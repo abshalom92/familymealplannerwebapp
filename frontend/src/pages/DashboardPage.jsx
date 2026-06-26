@@ -7,6 +7,7 @@ import {
 import api from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { offlineDB } from '../lib/offlineDB'
+import BadgesPanel from '../components/BadgesPanel'
 
 function getMondayOfWeek(date) {
   const d = new Date(date)
@@ -94,6 +95,7 @@ export default function DashboardPage() {
   const [mealReqPending, setMealReqPending] = useState([])   // HoH: pending requests this week
   const [myMealRequests, setMyMealRequests] = useState([])   // non-HoH: own pending requests
   const [vaultExpiringCount, setVaultExpiringCount] = useState(0)
+  const [badges, setBadges] = useState(null)
 
   // 10b: daily/weekly toggle
   const [statView, setStatView] = useState('daily')
@@ -107,6 +109,9 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!user?.isGuest) {
+      api.get('/badges').then(({ data }) =>
+        setBadges({ familyBadges: data.family_badges, personalBadges: data.personal_badges, nextBadge: data.next_badge, inGroup: data.in_group })
+      ).catch(() => {})
       api.get('/profile').then(({ data }) => setProfile(data)).catch(() => {})
       api.get('/group').then(({ data: group }) => {
         const me = group.members.find(m => m.username === user?.username)
@@ -304,6 +309,9 @@ export default function DashboardPage() {
           </button>
         </div>
       )}
+
+      {/* Achievements */}
+      {!user?.isGuest && <BadgesPanel data={badges} />}
 
       {/* Week navigation */}
       <div className="flex items-center justify-between mb-6">

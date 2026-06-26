@@ -91,6 +91,54 @@ const TIMEZONES = [
   'Pacific/Fiji',
 ]
 
+function PersonalBadgesSection() {
+  const [badges, setBadges] = useState(null)
+
+  useEffect(() => {
+    api.get('/badges').then(({ data }) => setBadges(data)).catch(() => {})
+  }, [])
+
+  if (!badges) return null
+  const personal = badges.personal_badges ?? []
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm mt-6">
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-lg">🏅</span>
+        <h2 className="font-semibold text-gray-700">My Badges</h2>
+        {personal.length > 0 && (
+          <span className="text-xs bg-amber-100 text-amber-700 font-semibold px-2 py-0.5 rounded-full">
+            {personal.length}
+          </span>
+        )}
+      </div>
+      {personal.length === 0 ? (
+        <p className="text-sm text-gray-400 italic">
+          Add meals to the calendar or vault to earn personal badges.
+        </p>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {personal.map(b => (
+            <div
+              key={b.id}
+              title={`${b.description}\nEarned ${new Date(b.earned_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`}
+              className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-full px-3 py-1.5 text-xs font-medium text-blue-800"
+            >
+              <span className="text-base leading-none">{b.icon}</span>
+              <div>
+                <p className="font-semibold leading-tight">{b.name}</p>
+                <p className="text-[10px] opacity-70 leading-tight">
+                  {new Date(b.earned_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function ProfilePage() {
   const [profile, setProfile] = useState(null)
   const [form, setForm] = useState({})
@@ -557,6 +605,9 @@ export default function ProfilePage() {
           )}
         </div>
       )}
+
+      {/* Personal Badges */}
+      <PersonalBadgesSection />
 
       {/* Weight Tracker */}
       <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm mt-6">

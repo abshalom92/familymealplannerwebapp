@@ -189,6 +189,34 @@ class MealPlan(Base):
         return self.user.username if self.user else None
 
 
+class Badge(Base):
+    __tablename__ = "badges"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), unique=True, nullable=False)
+    description = Column(Text)
+    category = Column(String(20), nullable=False)   # 'family' | 'individual'
+    trigger_type = Column(String(40), unique=True, nullable=False)
+    icon = Column(String(20), nullable=True)
+
+
+class FamilyBadge(Base):
+    __tablename__ = "family_badges"
+    id = Column(Integer, primary_key=True, index=True)
+    family_group_id = Column(Integer, ForeignKey("family_groups.id", ondelete="CASCADE"), nullable=False)
+    badge_id = Column(Integer, ForeignKey("badges.id"), nullable=False)
+    earned_at = Column(DateTime, default=datetime.utcnow)
+    badge = relationship("Badge")
+
+
+class UserBadge(Base):
+    __tablename__ = "user_badges"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    badge_id = Column(Integer, ForeignKey("badges.id"), nullable=False)
+    earned_at = Column(DateTime, default=datetime.utcnow)
+    badge = relationship("Badge")
+
+
 class VaultEntry(Base):
     __tablename__ = "vault_entries"
     id = Column(Integer, primary_key=True, index=True)
